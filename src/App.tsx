@@ -34,6 +34,7 @@ import {
 } from './types/types'
 // import { estimateCalories } from './services/geminiService'
 import { CircularProgress } from './components/CircularProgress'
+import LiquidEffect from './components/LiquidEffect'
 
 // --- Constants ---
 const STORAGE_KEY_USER = 'calorieflow_user'
@@ -96,8 +97,8 @@ const TabButton: React.FC<{
 }> = ({ active, onClick, icon, label }) => (
   <button
     onClick={onClick}
-    className={`flex flex-col items-center justify-center w-full py-2 transition-colors cursor-pointer ${
-      active ? 'text-green-600' : 'text-gray-400 hover:text-gray-600'
+    className={`flex flex-col items-center justify-center w-full py-2 transition-colors cursor-pointer rounded-4xl ${
+      active ? 'text-green-600 bg-gray-400/10 backdrop-blur-sm' : 'text-gray-400 hover:text-gray-600'
     }`}
   >
     <div className={`mb-1 ${active ? 'scale-110' : ''} transition-transform`}>
@@ -930,9 +931,9 @@ export default function App () {
     )
 
   return (
-    <div className='max-w-md mx-auto h-screen bg-slate-50 flex flex-col overflow-hidden relative font-sans text-slate-900'>
+    <div className='max-w-md mx-auto h-screen font-sans overflow-hidden text-slate-900'>
       {/* Content Area */}
-      <main className='flex-1 overflow-y-auto no-scrollbar p-6'>
+      <main className='h-full overflow-y-auto no-scrollbar p-6'>
         {activeTab === 'dashboard' && renderDashboard()}
         {activeTab === 'add' && renderAddFood()}
         {activeTab === 'stats' && renderStats()}
@@ -940,53 +941,59 @@ export default function App () {
       </main>
 
       {/* Bottom Navigation */}
-      <nav className='absolute bottom-0 w-full bg-white border-t border-slate-100 pb-safe shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.1)]'>
-        <div className='flex justify-around items-center px-2 pb-2 pt-3'>
-          <TabButton
-            active={activeTab === 'dashboard'}
-            onClick={() => setActiveTab('dashboard')}
-            icon={
-              <Utensils
-                size={24}
-                strokeWidth={activeTab === 'dashboard' ? 2.5 : 2}
-              />
-            }
-            label='หน้าหลัก'
-          />
-          <TabButton
-            active={activeTab === 'add'}
-            onClick={() => setActiveTab('add')}
-            icon={
-              <div className='bg-green-500 rounded-full p-2 text-white shadow-lg shadow-green-200'>
-                <Plus size={24} strokeWidth={3} />
-              </div>
-            }
-            label=''
-          />
-          <TabButton
-            active={activeTab === 'stats'}
-            onClick={() => setActiveTab('stats')}
-            icon={
-              <BarChart2
-                size={24}
-                strokeWidth={activeTab === 'stats' ? 2.5 : 2}
-              />
-            }
-            label='สถิติ'
-          />
-          <TabButton
-            active={activeTab === 'settings'}
-            onClick={() => setActiveTab('settings')}
-            icon={
-              <Settings
-                size={24}
-                strokeWidth={activeTab === 'settings' ? 2.5 : 2}
-              />
-            }
-            label='ตั้งค่า'
-          />
-        </div>
-      </nav>
+      <div className='p-4 sticky bottom-0'>
+        <LiquidEffect
+          tintColor='#dfdfdf'
+          distortion={40}
+          className='absolute bottom-0 w-full border border-[#dfdfdf]'
+        >
+          <div className='flex justify-around items-center p-2 gap-2'>
+            <TabButton
+              active={activeTab === 'dashboard'}
+              onClick={() => setActiveTab('dashboard')}
+              icon={
+                <Utensils
+                  size={24}
+                  strokeWidth={activeTab === 'dashboard' ? 2.5 : 2}
+                />
+              }
+              label='หน้าหลัก'
+            />
+            <TabButton
+              active={activeTab === 'add'}
+              onClick={() => setActiveTab('add')}
+              icon={
+                <div className='bg-green-500 rounded-full p-2 text-white shadow-lg shadow-green-200'>
+                  <Plus size={24} strokeWidth={3} />
+                </div>
+              }
+              label=''
+            />
+            <TabButton
+              active={activeTab === 'stats'}
+              onClick={() => setActiveTab('stats')}
+              icon={
+                <BarChart2
+                  size={24}
+                  strokeWidth={activeTab === 'stats' ? 2.5 : 2}
+                />
+              }
+              label='สถิติ'
+            />
+            <TabButton
+              active={activeTab === 'settings'}
+              onClick={() => setActiveTab('settings')}
+              icon={
+                <Settings
+                  size={24}
+                  strokeWidth={activeTab === 'settings' ? 2.5 : 2}
+                />
+              }
+              label='ตั้งค่า'
+            />
+          </div>
+        </LiquidEffect>
+      </div>
     </div>
   )
 }
