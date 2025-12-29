@@ -97,7 +97,7 @@ const TabButton: React.FC<{
 }> = ({ active, onClick, icon, label }) => (
   <button
     onClick={onClick}
-    className={`flex flex-col items-center justify-center w-full py-2 transition-colors cursor-pointer ${active ? 'text-green-600' : 'text-gray-400 hover:text-gray-600'
+    className={`flex flex-col items-center justify-center w-full transition-colors cursor-pointer ${active ? 'text-green-600' : 'text-gray-400 hover:text-gray-600'
       }`}
   >
     <div className={`mb-1 ${active ? 'scale-110' : ''} transition-transform`}>
@@ -645,6 +645,9 @@ export default function App() {
           <div className='relative'>
             <input
               type='text'
+              autoComplete='off'
+              autoCorrect='off'
+              autoCapitalize='off'
               value={foodInput}
               onChange={e => setFoodInput(e.target.value)}
               placeholder='เช่น ข้าวมันไก่, กะเพราหมูสับ...'
@@ -666,7 +669,10 @@ export default function App() {
           </label>
           <input
             type='number'
-            inputMode='numeric'
+            inputMode='decimal'
+            autoComplete='off'
+            autoCorrect='off'
+            autoCapitalize='off'
             value={calInput}
             onChange={e => setCalInput(e.target.value)}
             placeholder='0'
@@ -757,7 +763,10 @@ export default function App() {
         <div className='flex gap-3'>
           <input
             type='number'
-            inputMode='numeric'
+            inputMode='decimal'
+            autoComplete='off'
+            autoCorrect='off'
+            autoCapitalize='off'
             value={newWeight}
             onChange={e => setNewWeight(e.target.value)}
             placeholder={user.currentWeight.toString()}
@@ -787,6 +796,10 @@ export default function App() {
           </label>
           <input
             type='text'
+            inputMode='text'
+            autoComplete='off'
+            autoCorrect='off'
+            autoCapitalize='off'
             value={user.name}
             onChange={e => handleUpdateProfile({ name: e.target.value })}
             className='w-full p-3 bg-slate-50 border-slate-200 border rounded-xl'
@@ -826,7 +839,10 @@ export default function App() {
             </label>
             <input
               type='number'
-              inputMode='numeric'
+              inputMode='decimal'
+              autoComplete='off'
+              autoCorrect='off'
+              autoCapitalize='off'
               value={user.height}
               onChange={e =>
                 handleUpdateProfile({ height: parseInt(e.target.value) })
@@ -841,6 +857,9 @@ export default function App() {
             <input
               type='number'
               inputMode='numeric'
+              autoComplete='off'
+              autoCorrect='off'
+              autoCapitalize='off'
               value={user.age}
               onChange={e =>
                 handleUpdateProfile({ age: parseInt(e.target.value) })
@@ -927,7 +946,10 @@ export default function App() {
             <p className='text-xs text-purple-500 mb-1'>เป้าหมายน้ำหนัก</p>
             <input
               type='number'
-              inputMode='numeric'
+              inputMode='decimal'
+              autoComplete='off'
+              autoCorrect='off'
+              autoCapitalize='off'
               className='w-full bg-transparent font-bold text-purple-700 text-xl focus:outline-none'
               value={user.targetWeight}
               onChange={e =>
@@ -955,7 +977,10 @@ export default function App() {
           </div>
           <input
             type='number'
-            inputMode='numeric'
+            inputMode='decimal'
+            autoComplete='off'
+            autoCorrect='off'
+            autoCapitalize='off'
             value={user.manualTDEE || ''}
             onChange={e =>
               handleUpdateProfile({
@@ -1040,7 +1065,7 @@ export default function App() {
       </main>
 
       <nav className='absolute bottom-0 w-full bg-white border-t border-slate-100 pb-safe shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.1)]'>
-        <div className='flex justify-around items-center px-2 pb-4 pt-3'>
+        <div className='flex justify-around items-center px-2 pb-6 pt-3'>
           <TabButton
             active={activeTab === 'dashboard'}
             onClick={() => setActiveTab('dashboard')}
