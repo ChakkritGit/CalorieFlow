@@ -4,7 +4,7 @@
   "start_url": "./",
   "display": "standalone",
   "background_color": "#f8fafc",
-  "theme_color": "#22c55e",
+  "theme_color": "#f8fafc",
   "description": "A smart calorie and weight tracker that dynamically adjusts TDEE based on weight changes.",
   "icons": [
     {
