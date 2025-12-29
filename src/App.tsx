@@ -71,9 +71,9 @@ const calculateTDEE = (user: UserProfile): number => {
   // Adjust based on goal
   switch (user.goalType) {
     case GoalType.LOSE_WEIGHT:
-      return Math.round(tdee - 500) // ~0.5kg loss/week
+      return Math.round(tdee - 1000) // ~0.5kg loss/week
     case GoalType.GAIN_WEIGHT:
-      return Math.round(tdee + 500)
+      return Math.round(tdee + 1000)
     default:
       return Math.round(tdee)
   }
@@ -572,6 +572,7 @@ export default function App () {
           </label>
           <input
             type='number'
+            inputMode='numeric'
             value={calInput}
             onChange={e => setCalInput(e.target.value)}
             placeholder='0'
@@ -665,6 +666,7 @@ export default function App () {
         <div className='flex gap-3'>
           <input
             type='number'
+            inputMode='numeric'
             value={newWeight}
             onChange={e => setNewWeight(e.target.value)}
             placeholder={user.currentWeight.toString()}
@@ -736,6 +738,7 @@ export default function App () {
             </label>
             <input
               type='number'
+              inputMode='numeric'
               value={user.height}
               onChange={e =>
                 handleUpdateProfile({ height: parseInt(e.target.value) })
@@ -749,6 +752,7 @@ export default function App () {
             </label>
             <input
               type='number'
+              inputMode='numeric'
               value={user.age}
               onChange={e =>
                 handleUpdateProfile({ age: parseInt(e.target.value) })
@@ -836,6 +840,7 @@ export default function App () {
             <p className='text-xs text-purple-500 mb-1'>เป้าหมายน้ำหนัก</p>
             <input
               type='number'
+              inputMode='numeric'
               className='w-full bg-transparent font-bold text-purple-700 text-xl focus:outline-none'
               value={user.targetWeight}
               onChange={e =>
@@ -864,6 +869,7 @@ export default function App () {
           </div>
           <input
             type='number'
+            inputMode='numeric'
             value={user.manualTDEE || ''}
             onChange={e =>
               handleUpdateProfile({
