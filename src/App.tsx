@@ -15,7 +15,9 @@ import {
   Pencil,
   HistoryIcon,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Flame,
+  Award
 } from 'lucide-react'
 import {
   BarChart,
@@ -52,7 +54,9 @@ const INITIAL_USER: UserProfile = {
   targetWeight: 65,
   activityLevel: ActivityLevel.SEDENTARY,
   goalType: GoalType.LOSE_WEIGHT,
-  updatedAt: new Date().toISOString()
+  updatedAt: new Date().toISOString(),
+  streak: 0,
+  waterGoal: 2000
 }
 
 // --- Helper Functions: Calc ---
@@ -80,7 +84,17 @@ const calculateTDEE = (user: UserProfile): number => {
   }
 }
 
-const getTodayDateString = () => new Date().toISOString().split('T')[0]
+/**
+ * Get local date string in YYYY-MM-DD format
+ * This fixes the issue where UTC date was used (reseting at 7AM instead of Midnight)
+ */
+const getTodayDateString = () => {
+  const d = new Date()
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
 
 const formatDate = (dateStr: string) => {
   const date = new Date(dateStr)
@@ -97,8 +111,9 @@ const TabButton: React.FC<{
 }> = ({ active, onClick, icon, label }) => (
   <button
     onClick={onClick}
-    className={`flex flex-col items-center justify-center w-full transition-colors cursor-pointer ${active ? 'text-green-600' : 'text-gray-400 hover:text-gray-600'
-      }`}
+    className={`flex flex-col items-center justify-center w-full transition-colors cursor-pointer ${
+      active ? 'text-green-600' : 'text-gray-400 hover:text-gray-600'
+    }`}
   >
     <div className={`mb-1 ${active ? 'scale-110' : ''} transition-transform`}>
       {icon}
@@ -107,7 +122,7 @@ const TabButton: React.FC<{
   </button>
 )
 
-export default function App() {
+export default function App () {
   // --- State ---
   const [activeTab, setActiveTab] = useState<
     'dashboard' | 'history' | 'add' | 'stats' | 'settings'
@@ -124,25 +139,26 @@ export default function App() {
   const [newWeight, setNewWeight] = useState('')
 
   // History states
-  const [selectedDate, setSelectedDate] = useState(getTodayDateString());
-  const [viewMonth, setViewMonth] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState(getTodayDateString())
+  const [viewMonth, setViewMonth] = useState(new Date())
+  const [todayDate, setTodayDate] = useState(getTodayDateString())
 
   // File Import Ref
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // --- Modal State ---
   const [modalConfig, setModalConfig] = useState<{
-    isOpen: boolean;
-    title: string;
-    message: string;
-    type: 'info' | 'success' | 'error' | 'confirm';
-    onConfirm?: () => void;
+    isOpen: boolean
+    title: string
+    message: string
+    type: 'info' | 'success' | 'error' | 'confirm'
+    onConfirm?: () => void
   }>({
     isOpen: false,
     title: '',
     message: '',
     type: 'info'
-  });
+  })
 
   const showModal = (
     title: string,
@@ -150,14 +166,40 @@ export default function App() {
     type: 'info' | 'success' | 'error' | 'confirm' = 'info',
     onConfirm?: () => void
   ) => {
-    setModalConfig({ isOpen: true, title, message, type, onConfirm });
-  };
+    setModalConfig({ isOpen: true, title, message, type, onConfirm })
+  }
 
   const closeModal = () => {
-    setModalConfig(prev => ({ ...prev, isOpen: false }));
-  };
+    setModalConfig(prev => ({ ...prev, isOpen: false }))
+  }
+
+  // --- Streak Logic Helper ---
+  const checkStreak = (currentUser: UserProfile) => {
+    if (!currentUser.lastLogTimestamp) return currentUser
+
+    const lastLog = new Date(currentUser.lastLogTimestamp).getTime()
+    const now = new Date().getTime()
+    const diffHours = (now - lastLog) / (1000 * 60 * 60)
+
+    if (diffHours > 48) {
+      return { ...currentUser, streak: 0 }
+    }
+    return currentUser
+  }
 
   // --- Effects ---
+
+  // Check and update date periodically in case app is left open over midnight
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const current = getTodayDateString()
+      if (current !== todayDate) {
+        setTodayDate(current)
+        setSelectedDate(current)
+      }
+    }, 60000) // Check every minute
+    return () => clearInterval(interval)
+  }, [todayDate])
 
   // 1. Load data from IndexedDB on startup
   useEffect(() => {
@@ -166,40 +208,41 @@ export default function App() {
         const [storedUser, storedLogs] = await Promise.all([
           dbService.get(STORAGE_KEY_USER),
           dbService.get(STORAGE_KEY_LOGS)
-        ]);
+        ])
 
         if (storedUser) {
-          setUser(storedUser);
+          const streakCheckedUser = checkStreak(storedUser)
+          setUser({ ...INITIAL_USER, ...streakCheckedUser })
         }
         if (storedLogs) {
-          setLogs(storedLogs);
+          setLogs(storedLogs)
         }
       } catch (e) {
-        console.error('Failed to load data from DB', e);
+        console.error('Failed to load data from DB', e)
       } finally {
-        setIsInitializing(false);
+        setIsInitializing(false)
       }
-    };
+    }
 
-    loadData();
-  }, []);
+    loadData()
+  }, [])
 
   // 2. Save User to IndexedDB when changed
   useEffect(() => {
     if (!isInitializing) {
-      dbService.set(STORAGE_KEY_USER, user);
+      dbService.set(STORAGE_KEY_USER, user)
     }
-  }, [user, isInitializing]);
+  }, [user, isInitializing])
 
   // 3. Save Logs to IndexedDB when changed
   useEffect(() => {
     if (!isInitializing) {
-      dbService.set(STORAGE_KEY_LOGS, logs);
+      dbService.set(STORAGE_KEY_LOGS, logs)
     }
-  }, [logs, isInitializing]);
+  }, [logs, isInitializing])
 
   // --- Computed Data ---
-  const today = getTodayDateString()
+  const today = todayDate
   const currentLog = logs[today] || { date: today, foods: [], totalCalories: 0 }
   const dailyTarget = calculateTDEE(user)
   const remaining = dailyTarget - currentLog.totalCalories
@@ -263,6 +306,40 @@ export default function App() {
       }
     })
 
+    setUser(prev => {
+      let newStreak = prev.streak
+      const lastLogTimestamp = prev.lastLogTimestamp
+      let lastLogStr = null
+      if (lastLogTimestamp) {
+        const lDate = new Date(lastLogTimestamp)
+        lastLogStr = `${lDate.getFullYear()}-${String(
+          lDate.getMonth() + 1
+        ).padStart(2, '0')}-${String(lDate.getDate()).padStart(2, '0')}`
+      }
+      const todayStr = getTodayDateString()
+
+      if (!lastLogStr) {
+        newStreak = 1
+      } else {
+        const lastLogTime = new Date(lastLogTimestamp!).getTime()
+        const nowTime = new Date().getTime()
+        const diffHours = (nowTime - lastLogTime) / (1000 * 60 * 60)
+
+        if (diffHours > 48) {
+          newStreak = 1
+        } else if (lastLogStr !== todayStr) {
+          newStreak += 1
+        }
+      }
+
+      return {
+        ...prev,
+        streak: newStreak,
+        lastLogTimestamp: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }
+    })
+
     setFoodInput('')
     setCalInput('')
     setActiveTab('dashboard')
@@ -306,7 +383,7 @@ export default function App() {
           }
         }
       })
-      showModal('สำเร็จ', 'อัปเดตน้ำหนักเรียบร้อยแล้ว', 'success');
+      showModal('สำเร็จ', 'อัปเดตน้ำหนักเรียบร้อยแล้ว', 'success')
     }
   }
 
@@ -350,73 +427,82 @@ export default function App() {
         const data = JSON.parse(content)
 
         if (data.user && data.logs) {
-          const confirmMsg = `พบข้อมูล:\nชื่อ: ${data.user.name || 'ไม่ระบุ'
-            }\nน้ำหนัก: ${data.user.currentWeight
-            }kg\n\nต้องการนำเข้าข้อมูลนี้หรือไม่?`
+          const confirmMsg = `พบข้อมูล:\nชื่อ: ${
+            data.user.name || 'ไม่ระบุ'
+          }\nน้ำหนัก: ${
+            data.user.currentWeight
+          }kg\n\nต้องการนำเข้าข้อมูลนี้หรือไม่?`
 
           // Use Custom Modal instead of window.confirm
-          showModal(
-            'ยืนยันการนำเข้า',
-            confirmMsg,
-            'confirm',
-            () => {
-              // This logic executes only when confirmed
-              const importedUser = data.user
-              const safeNum = (val: any, fallback: number) => {
-                const n = Number(val)
-                return n === 0 || !isNaN(n) ? n : fallback
-              }
-
-              const newUserState: UserProfile = {
-                ...INITIAL_USER,
-                ...importedUser,
-                name: importedUser.name || INITIAL_USER.name,
-                currentWeight: safeNum(
-                  importedUser.currentWeight,
-                  INITIAL_USER.currentWeight
-                ),
-                targetWeight: safeNum(
-                  importedUser.targetWeight,
-                  INITIAL_USER.targetWeight
-                ),
-                height: safeNum(importedUser.height, INITIAL_USER.height),
-                age: safeNum(importedUser.age, INITIAL_USER.age),
-                activityLevel: safeNum(
-                  importedUser.activityLevel,
-                  INITIAL_USER.activityLevel
-                ),
-                updatedAt: new Date().toISOString()
-              }
-
-              const g = String(importedUser.gender).toLowerCase()
-              newUserState.gender = g === 'female' ? Gender.FEMALE : Gender.MALE
-
-              const goal = String(importedUser.goalType)
-              const validGoals = Object.values(GoalType) as string[]
-              newUserState.goalType = validGoals.includes(goal)
-                ? (goal as GoalType)
-                : GoalType.LOSE_WEIGHT
-
-              const tdee = Number(importedUser.manualTDEE)
-              newUserState.manualTDEE = tdee > 0 ? tdee : undefined
-
-              // Update State
-              setUser(newUserState)
-              setLogs(data.logs)
-
-              // Show success modal after slight delay to allow confirm modal to close/transition
-              setTimeout(() => {
-                showModal('สำเร็จ', `นำเข้าข้อมูลสำเร็จ! ยินดีต้อนรับ ${newUserState.name}`, 'success');
-              }, 300);
+          showModal('ยืนยันการนำเข้า', confirmMsg, 'confirm', () => {
+            // This logic executes only when confirmed
+            const importedUser = data.user
+            const safeNum = (val: any, fallback: number) => {
+              const n = Number(val)
+              return n === 0 || !isNaN(n) ? n : fallback
             }
-          );
 
+            const newUserState: UserProfile = {
+              ...INITIAL_USER,
+              ...importedUser,
+              name: importedUser.name || INITIAL_USER.name,
+              currentWeight: safeNum(
+                importedUser.currentWeight,
+                INITIAL_USER.currentWeight
+              ),
+              targetWeight: safeNum(
+                importedUser.targetWeight,
+                INITIAL_USER.targetWeight
+              ),
+              height: safeNum(importedUser.height, INITIAL_USER.height),
+              age: safeNum(importedUser.age, INITIAL_USER.age),
+              activityLevel: safeNum(
+                importedUser.activityLevel,
+                INITIAL_USER.activityLevel
+              ),
+              updatedAt: new Date().toISOString()
+            }
+
+            const g = String(importedUser.gender).toLowerCase()
+            newUserState.gender = g === 'female' ? Gender.FEMALE : Gender.MALE
+
+            const goal = String(importedUser.goalType)
+            const validGoals = Object.values(GoalType) as string[]
+            newUserState.goalType = validGoals.includes(goal)
+              ? (goal as GoalType)
+              : GoalType.LOSE_WEIGHT
+
+            const tdee = Number(importedUser.manualTDEE)
+            newUserState.manualTDEE = tdee > 0 ? tdee : undefined
+
+            // Update State
+            setUser(newUserState)
+            setLogs(data.logs)
+
+            // Show success modal after slight delay to allow confirm modal to close/transition
+            setTimeout(() => {
+              showModal(
+                'สำเร็จ',
+                `นำเข้าข้อมูลสำเร็จ! ยินดีต้อนรับ ${newUserState.name}`,
+                'success'
+              )
+            }, 300)
+          })
         } else {
-          showModal('ผิดพลาด', 'รูปแบบไฟล์ไม่ถูกต้อง: ไม่พบข้อมูล user หรือ logs', 'error');
+          showModal(
+            'ผิดพลาด',
+            'รูปแบบไฟล์ไม่ถูกต้อง: ไม่พบข้อมูล user หรือ logs',
+            'error'
+          )
         }
       } catch (error) {
         console.error('Import Error:', error)
-        showModal('ผิดพลาด', 'เกิดข้อผิดพลาด: ' + (error instanceof Error ? error.message : 'Unknown error'), 'error');
+        showModal(
+          'ผิดพลาด',
+          'เกิดข้อผิดพลาด: ' +
+            (error instanceof Error ? error.message : 'Unknown error'),
+          'error'
+        )
       } finally {
         if (fileInputRef.current) {
           fileInputRef.current.value = ''
@@ -428,208 +514,294 @@ export default function App() {
 
   // --- Renders ---
 
-  const renderDashboard = () => (
-    <div className='space-y-6 pb-24 animate-fade-in'>
-      <div className='bg-white p-6 rounded-3xl shadow-sm border border-slate-100'>
-        <div className='flex justify-between items-start mb-4'>
-          <div>
-            <h1 className='text-2xl font-bold text-slate-800'>
-              สวัสดี, {user.name}
-            </h1>
-            <p className='text-slate-500 text-sm'>
-              เป้าหมาย:{' '}
-              {user.goalType === GoalType.LOSE_WEIGHT
-                ? 'ลดน้ำหนัก'
-                : user.goalType === GoalType.GAIN_WEIGHT
-                  ? 'เพิ่มน้ำหนัก'
-                  : 'รักษาน้ำหนัก'}
-            </p>
-          </div>
-          <div className='bg-green-50 px-3 py-1 rounded-full text-green-700 text-xs font-semibold border border-green-100'>
-            {user.currentWeight} kg
-          </div>
-        </div>
-
-        <div className='flex flex-col items-center'>
-          <CircularProgress
-            percentage={progressPercent}
-            color={remaining < 0 ? 'text-red-500' : 'text-green-500'}
-            size={180}
-            strokeWidth={14}
-          >
-            <div className='text-center'>
-              <span className='block text-4xl font-bold text-slate-800'>
-                {remaining}
-              </span>
-              <span className='text-xs text-slate-400 uppercase tracking-wide'>
-                เหลือ (Kcal)
-              </span>
-            </div>
-          </CircularProgress>
-
-          <div className='grid grid-cols-2 gap-8 mt-6 w-full max-w-xs'>
-            <div className='text-center'>
-              <p className='text-xs text-slate-400'>ทานไปแล้ว</p>
-              <p className='text-xl font-semibold text-slate-700'>
-                {currentLog.totalCalories}
-              </p>
-            </div>
-            <div className='text-center'>
-              <p className='text-xs text-slate-400'>
-                เป้าหมาย ({user.manualTDEE ? 'กำหนดเอง' : 'TDEE'})
-              </p>
-              <p className='text-xl font-semibold text-slate-700'>
-                {dailyTarget}
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className='bg-white p-6 rounded-3xl shadow-sm border border-slate-100'>
-        <div className='flex justify-between items-center mb-2'>
-          <h3 className='font-semibold text-slate-700'>สถานะรายวัน</h3>
-          <span className='text-xs text-slate-400'>
-            {Math.round(progressPercent)}%
-          </span>
-        </div>
-        <div className='h-4 bg-slate-100 rounded-full overflow-hidden w-full relative'>
-          <div
-            className={`h-full rounded-full transition-all duration-500 ${remaining < 0
-              ? 'bg-red-500'
-              : progressPercent > 80
-                ? 'bg-orange-400'
-                : 'bg-green-500'
-              }`}
-            style={{ width: `${Math.min(progressPercent, 100)}%` }}
-          ></div>
-          <div className='absolute inset-0 bg-[linear-gradient(45deg,rgba(255,255,255,0.2)_25%,transparent_25%,transparent_50%,rgba(255,255,255,0.2)_50%,rgba(255,255,255,0.2)_75%,transparent_75%,transparent)] bg-size-[1rem_1rem] opacity-30'></div>
-        </div>
-        <p className='text-xs text-slate-400 mt-2 text-right'>
-          {remaining < 0 ? 'เกินเป้าหมายแล้ว!' : 'ยังทานได้อีกนิดหน่อย'}
-        </p>
-      </div>
-
-      <div>
-        <div className='flex justify-between items-center px-2 mb-3'>
-          <h2 className='text-lg font-bold text-slate-800'>รายการวันนี้</h2>
-          <button
-            onClick={() => setActiveTab('add')}
-            className='text-sm text-green-600 font-medium hover:text-green-700 cursor-pointer'
-          >
-            + เพิ่มรายการ
-          </button>
-        </div>
-
-        <div className='space-y-3'>
-          {currentLog.foods.length === 0 ? (
-            <div className='text-center py-10 text-slate-400 bg-white rounded-2xl border border-dashed border-slate-200'>
-              ยังไม่มีรายการอาหาร
-            </div>
-          ) : (
-            currentLog.foods.map(food => (
-              <div
-                key={food.id}
-                className='bg-white p-4 rounded-2xl shadow-sm border border-slate-50 flex justify-between items-center group'
-              >
-                <div>
-                  <p className='font-medium text-slate-700'>{food.name}</p>
-                  <p className='text-xs text-slate-400'>
-                    {new Date(food.timestamp).toLocaleTimeString('th-TH', {
-                      hour: '2-digit',
-                      minute: '2-digit'
-                    })}
-                  </p>
-                </div>
-                <div className='flex items-center gap-3'>
-                  <span className='font-semibold text-slate-600'>
-                    {food.calories} kcal
-                  </span>
-                  <button
-                    onClick={() => handleDeleteFood(food.id)}
-                    className='p-2 text-slate-300 hover:text-red-500 transition-colors cursor-pointer'
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      </div>
-    </div>
-  )
-
-  const renderCalendar = () => {
-    const year = viewMonth.getFullYear();
-    const month = viewMonth.getMonth();
-    const firstDay = new Date(year, month, 1).getDay();
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const days = [];
-    for (let i = 0; i < firstDay; i++) days.push(null);
-    for (let i = 1; i <= daysInMonth; i++) days.push(i);
-
-    const monthNames = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
+  const renderDashboard = () => {
+    const isOver = remaining < 0
 
     return (
-      <div className="bg-white rounded-3xl p-4 shadow-sm border border-slate-100">
-        <div className="flex justify-between items-center mb-4">
-          <button onClick={() => setViewMonth(new Date(year, month - 1))} className="p-2"><ChevronLeft size={20} /></button>
-          <span className="font-bold text-slate-700">{monthNames[month]} {year + 543}</span>
-          <button onClick={() => setViewMonth(new Date(year, month + 1))} className="p-2"><ChevronRight size={20} /></button>
+      <div className='space-y-6 pb-24 animate-fade-in'>
+        {/* Streak Highlight Card */}
+        {user.streak > 0 && (
+          <div className='bg-linear-to-br from-orange-400 to-red-500 p-4 rounded-3xl shadow-lg shadow-orange-100 flex items-center justify-between text-white border border-orange-300'>
+            <div className='flex items-center gap-4'>
+              <div className='bg-white/20 p-3 rounded-2xl backdrop-blur-md'>
+                <Flame
+                  size={28}
+                  fill='currentColor'
+                  className='text-white animate-pulse'
+                />
+              </div>
+              <div>
+                <h4 className='text-[10px] uppercase tracking-widest font-black opacity-80'>
+                  บันทึกต่อเนื่อง
+                </h4>
+                <p className='text-2xl font-black'>{user.streak} วัน</p>
+              </div>
+            </div>
+            <div className='text-right'>
+              <Award size={24} className='opacity-50 inline-block mb-1' />
+              <p className='text-[10px] font-bold opacity-80'>
+                ความพยายาม {user.streak > 3 ? 'เยี่ยมมาก!' : 'สู้ต่อไป!'}
+              </p>
+            </div>
+          </div>
+        )}
+
+        <div className='bg-white p-6 rounded-3xl shadow-sm border border-slate-100'>
+          <div className='flex justify-between items-start mb-4'>
+            <div>
+              <h1 className='text-2xl font-bold text-slate-800'>
+                สวัสดี, {user.name}
+              </h1>
+              <p className='text-slate-500 text-sm'>
+                เป้าหมาย:{' '}
+                {user.goalType === GoalType.LOSE_WEIGHT
+                  ? 'ลดน้ำหนัก'
+                  : user.goalType === GoalType.GAIN_WEIGHT
+                  ? 'เพิ่มน้ำหนัก'
+                  : 'รักษาน้ำหนัก'}
+              </p>
+            </div>
+            <div className='bg-green-50 px-3 py-1 rounded-full text-green-700 text-xs font-semibold border border-green-100'>
+              {user.currentWeight} kg
+            </div>
+          </div>
+
+          <div className='flex flex-col items-center'>
+            <CircularProgress
+              percentage={progressPercent}
+              color={remaining < 0 ? 'text-red-500' : 'text-green-500'}
+              size={180}
+              strokeWidth={12}
+            >
+              <div className='text-center'>
+                <span
+                  className={`block text-4xl font-bold tracking-tighter ${
+                    isOver ? 'text-red-600' : 'text-slate-800'
+                  }`}
+                >
+                  {isOver ? `+${Math.abs(remaining)}` : remaining}
+                </span>
+                <span className='text-xs text-slate-400 uppercase tracking-wide'>
+                  {isOver ? 'กินเกิน' : 'เหลือ'} (Kcal)
+                </span>
+              </div>
+            </CircularProgress>
+
+            <div className='grid grid-cols-2 gap-8 mt-6 w-full max-w-xs'>
+              <div className='text-center'>
+                <p className='text-xs text-slate-400'>ทานไปแล้ว</p>
+                <p className='text-xl font-semibold text-slate-700'>
+                  {currentLog.totalCalories}
+                </p>
+              </div>
+              <div className='text-center'>
+                <p className='text-xs text-slate-400'>
+                  เป้าหมาย ({user.manualTDEE ? 'กำหนดเอง' : 'TDEE'})
+                </p>
+                <p className='text-xl font-semibold text-slate-700'>
+                  {dailyTarget}
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
-        <div className="grid grid-cols-7 gap-1 text-center">
-          {["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"].map(d => <div key={d} className="text-[10px] text-slate-400 font-bold py-2">{d}</div>)}
+
+        <div className='bg-white p-6 rounded-3xl shadow-sm border border-slate-100'>
+          <div className='flex justify-between items-center mb-2'>
+            <h3 className='font-semibold text-slate-700'>สถานะรายวัน</h3>
+            <span className='text-xs text-slate-400'>
+              {Math.round(progressPercent)}%
+            </span>
+          </div>
+          <div className='h-3 bg-slate-100 rounded-full overflow-hidden w-full relative'>
+            <div
+              className={`h-full rounded-full transition-all duration-500 ${
+                remaining < 0
+                  ? 'bg-red-500'
+                  : progressPercent > 80
+                  ? 'bg-orange-400'
+                  : 'bg-green-500'
+              }`}
+              style={{ width: `${Math.min(progressPercent, 100)}%` }}
+            ></div>
+            <div className='absolute inset-0 bg-[linear-gradient(45deg,rgba(255,255,255,0.2)_25%,transparent_25%,transparent_50%,rgba(255,255,255,0.2)_50%,rgba(255,255,255,0.2)_75%,transparent_75%,transparent)] bg-size-[1rem_1rem] opacity-30'></div>
+          </div>
+          <p className='text-xs text-slate-400 mt-2 text-right'>
+            {remaining < 0 ? 'เกินเป้าหมายแล้ว!' : 'ยังทานได้อีกนิดหน่อย'}
+          </p>
+        </div>
+
+        <div>
+          <div className='flex justify-between items-center px-2 mb-3'>
+            <h2 className='text-lg font-bold text-slate-800'>รายการวันนี้</h2>
+            <button
+              onClick={() => setActiveTab('add')}
+              className='text-sm text-green-600 font-medium hover:text-green-700 cursor-pointer'
+            >
+              + เพิ่มรายการ
+            </button>
+          </div>
+
+          <div className='space-y-3'>
+            {currentLog.foods.length === 0 ? (
+              <div className='text-center py-10 text-slate-400 bg-white rounded-2xl border border-dashed border-slate-200'>
+                ยังไม่มีรายการอาหาร
+              </div>
+            ) : (
+              currentLog.foods.map(food => (
+                <div
+                  key={food.id}
+                  className='bg-white p-4 rounded-2xl shadow-sm border border-slate-50 flex justify-between items-center group'
+                >
+                  <div>
+                    <p className='font-medium text-slate-700'>{food.name}</p>
+                    <p className='text-xs text-slate-400'>
+                      {new Date(food.timestamp).toLocaleTimeString('th-TH', {
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </p>
+                  </div>
+                  <div className='flex items-center gap-3'>
+                    <span className='font-semibold text-slate-600'>
+                      {food.calories} kcal
+                    </span>
+                    <button
+                      onClick={() => handleDeleteFood(food.id)}
+                      className='p-2 text-slate-300 hover:text-red-500 transition-colors cursor-pointer'
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  const renderCalendar = () => {
+    const year = viewMonth.getFullYear()
+    const month = viewMonth.getMonth()
+    const firstDay = new Date(year, month, 1).getDay()
+    const daysInMonth = new Date(year, month + 1, 0).getDate()
+    const days = []
+    for (let i = 0; i < firstDay; i++) days.push(null)
+    for (let i = 1; i <= daysInMonth; i++) days.push(i)
+
+    const monthNames = [
+      'มกราคม',
+      'กุมภาพันธ์',
+      'มีนาคม',
+      'เมษายน',
+      'พฤษภาคม',
+      'มิถุนายน',
+      'กรกฎาคม',
+      'สิงหาคม',
+      'กันยายน',
+      'ตุลาคม',
+      'พฤศจิกายน',
+      'ธันวาคม'
+    ]
+
+    return (
+      <div className='bg-white rounded-3xl p-4 shadow-sm border border-slate-100'>
+        <div className='flex justify-between items-center mb-4'>
+          <button
+            onClick={() => setViewMonth(new Date(year, month - 1))}
+            className='p-2'
+          >
+            <ChevronLeft size={20} />
+          </button>
+          <span className='font-bold text-slate-700'>
+            {monthNames[month]} {year + 543}
+          </span>
+          <button
+            onClick={() => setViewMonth(new Date(year, month + 1))}
+            className='p-2'
+          >
+            <ChevronRight size={20} />
+          </button>
+        </div>
+        <div className='grid grid-cols-7 gap-1 text-center'>
+          {['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'].map(d => (
+            <div key={d} className='text-[10px] text-slate-400 font-bold py-2'>
+              {d}
+            </div>
+          ))}
           {days.map((day, idx) => {
-            if (!day) return <div key={`empty-${idx}`} />;
-            const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-            const hasData = logs[dateStr];
-            const isSelected = selectedDate === dateStr;
+            if (!day) return <div key={`empty-${idx}`} />
+            const dateStr = `${year}-${String(month + 1).padStart(
+              2,
+              '0'
+            )}-${String(day).padStart(2, '0')}`
+            const hasData = logs[dateStr]
+            const isSelected = selectedDate === dateStr
             return (
               <button
                 key={day}
                 onClick={() => setSelectedDate(dateStr)}
-                className={`aspect-square flex items-center justify-center text-sm rounded-full relative transition-colors ${isSelected ? 'bg-green-500 text-white font-bold' : 'text-slate-600 hover:bg-slate-50'
-                  }`}
+                className={`aspect-square flex items-center justify-center text-sm rounded-full relative transition-colors cursor-pointer ${
+                  isSelected
+                    ? 'bg-green-500 text-white font-bold'
+                    : 'text-slate-600 hover:bg-slate-50'
+                }`}
               >
                 {day}
-                {hasData && !isSelected && <div className="absolute bottom-1 w-1 h-1 bg-green-500 rounded-full"></div>}
+                {hasData && !isSelected && (
+                  <div className='absolute bottom-1 w-1 h-1 bg-green-500 rounded-full'></div>
+                )}
               </button>
-            );
+            )
           })}
         </div>
       </div>
-    );
-  };
+    )
+  }
 
   const renderHistory = () => {
-    const log = logs[selectedDate];
+    const log = logs[selectedDate]
     return (
-      <div className="space-y-6 pb-24 animate-fade-in">
-        <h2 className="text-2xl font-bold text-slate-800 px-2">ประวัติการบันทึก</h2>
+      <div className='space-y-6 pb-24 animate-fade-in'>
+        <h2 className='text-2xl font-bold text-slate-800 px-2'>
+          ประวัติการบันทึก
+        </h2>
         {renderCalendar()}
-        <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
-          <h3 className="font-bold text-slate-700 mb-4">{formatDate(selectedDate)}</h3>
+        <div className='bg-white p-6 rounded-3xl shadow-sm border border-slate-100'>
+          <h3 className='font-bold text-slate-700 mb-4'>
+            {formatDate(selectedDate)}
+          </h3>
           {!log || log.foods.length === 0 ? (
-            <p className="text-slate-400 text-center py-8">ไม่มีการบันทึกข้อมูลในวันนี้</p>
+            <p className='text-slate-400 text-center py-8'>
+              ไม่มีการบันทึกข้อมูลในวันนี้
+            </p>
           ) : (
-            <div className="space-y-4">
-              <div className="flex justify-between border-b border-slate-50 pb-2 mb-2">
-                <span className="text-slate-500 text-sm">รวมแคลอรี่</span>
-                <span className="font-bold text-green-600">{log.totalCalories} kcal</span>
+            <div className='space-y-4'>
+              <div className='flex justify-between border-b border-slate-50 pb-2 mb-2'>
+                <span className='text-slate-500 text-sm'>รวมแคลอรี่</span>
+                <span className='font-bold text-green-600'>
+                  {log.totalCalories} kcal
+                </span>
               </div>
               {log.foods.map(f => (
-                <div key={f.id} className="flex justify-between items-center text-sm">
-                  <span className="text-slate-600">{f.name}</span>
-                  <span className="font-medium text-slate-800">{f.calories} kcal</span>
+                <div
+                  key={f.id}
+                  className='flex justify-between items-center text-sm'
+                >
+                  <span className='text-slate-600'>{f.name}</span>
+                  <span className='font-medium text-slate-800'>
+                    {f.calories} kcal
+                  </span>
                 </div>
               ))}
             </div>
           )}
         </div>
       </div>
-    );
-  };
+    )
+  }
 
   const renderAddFood = () => (
     <div className='h-full flex flex-col pb-24 animate-fade-in'>
@@ -684,10 +856,11 @@ export default function App() {
           <button
             onClick={handleAddFood}
             disabled={!foodInput || !calInput}
-            className={`w-full py-4 rounded-xl font-bold text-lg shadow-lg shadow-green-200 flex justify-center items-center gap-2 transition-all ${!foodInput || !calInput
-              ? 'bg-slate-300 text-slate-500 cursor-not-allowed shadow-none'
-              : 'bg-green-500 text-white hover:bg-green-600 active:scale-95 cursor-pointer'
-              }`}
+            className={`w-full py-4 rounded-xl font-bold text-lg shadow-lg shadow-green-200 flex justify-center items-center gap-2 transition-all ${
+              !foodInput || !calInput
+                ? 'bg-slate-300 text-slate-500 cursor-not-allowed shadow-none'
+                : 'bg-green-500 text-white hover:bg-green-600 active:scale-95 cursor-pointer'
+            }`}
           >
             บันทึกรายการ
           </button>
@@ -752,6 +925,31 @@ export default function App() {
         </p>
       </div>
 
+      <div className='grid grid-cols-2 gap-4'>
+        <div className='bg-white/80 backdrop-blur-md p-5 rounded-3xl shadow-sm border border-slate-100 text-center overflow-hidden relative'>
+          <Flame
+            fill='currentColor'
+            size={64}
+            className='absolute -right-4 -bottom-4 text-orange-50 opacity-10'
+          />
+          <span className='block text-[10px] font-bold text-slate-400 uppercase mb-1 tracking-widest relative z-10'>
+            Streak ปัจจุบัน
+          </span>
+          <span className='text-2xl font-black text-orange-600 flex items-center justify-center gap-2 relative z-10'>
+            <Flame fill='currentColor' size={20} /> {user.streak} วัน
+          </span>
+        </div>
+        <div className='bg-white/80 backdrop-blur-md p-5 rounded-3xl shadow-sm border border-slate-100 text-center'>
+          <span className='block text-[10px] font-bold text-slate-400 uppercase mb-1 tracking-widest'>
+            เป้าหมาย TDEE
+          </span>
+          <span className='text-2xl font-black text-slate-700'>
+            {dailyTarget}{' '}
+            <span className='text-xs font-bold text-slate-400'>kcal</span>
+          </span>
+        </div>
+      </div>
+
       <div className='bg-white p-6 rounded-3xl shadow-sm border border-slate-100'>
         <div className='flex justify-between items-center mb-4'>
           <h3 className='font-semibold text-slate-700'>อัปเดตน้ำหนักล่าสุด</h3>
@@ -813,19 +1011,21 @@ export default function App() {
           <div className='flex gap-2'>
             <button
               onClick={() => handleUpdateProfile({ gender: Gender.MALE })}
-              className={`flex-1 py-3 rounded-xl border transition-colors flex items-center justify-center gap-2 cursor-pointer ${user.gender === Gender.MALE
-                ? 'bg-blue-50 border-blue-500 text-blue-700 font-medium'
-                : 'bg-slate-50 border-transparent text-slate-500 hover:bg-slate-100/30'
-                }`}
+              className={`flex-1 py-3 rounded-xl border transition-colors flex items-center justify-center gap-2 cursor-pointer ${
+                user.gender === Gender.MALE
+                  ? 'bg-blue-50 border-blue-500 text-blue-700 font-medium'
+                  : 'bg-slate-50 border-transparent text-slate-500 hover:bg-slate-100/30'
+              }`}
             >
               <span>ชาย</span>
             </button>
             <button
               onClick={() => handleUpdateProfile({ gender: Gender.FEMALE })}
-              className={`flex-1 py-3 rounded-xl border transition-colors flex items-center justify-center gap-2 cursor-pointer ${user.gender === Gender.FEMALE
-                ? 'bg-pink-50 border-pink-500 text-pink-700 font-medium'
-                : 'bg-slate-50 border-transparent text-slate-500 hover:bg-slate-100/30'
-                }`}
+              className={`flex-1 py-3 rounded-xl border transition-colors flex items-center justify-center gap-2 cursor-pointer ${
+                user.gender === Gender.FEMALE
+                  ? 'bg-pink-50 border-pink-500 text-pink-700 font-medium'
+                  : 'bg-slate-50 border-transparent text-slate-500 hover:bg-slate-100/30'
+              }`}
             >
               <span>หญิง</span>
             </button>
@@ -923,10 +1123,11 @@ export default function App() {
               <button
                 key={opt.val}
                 onClick={() => handleUpdateProfile({ goalType: opt.val })}
-                className={`flex flex-col items-center justify-center p-3 rounded-xl border cursor-pointer ${user.goalType === opt.val
-                  ? 'bg-green-50 border-green-500 text-green-700'
-                  : 'bg-slate-50 border-transparent text-slate-500 hover:bg-slate-100/30'
-                  }`}
+                className={`flex flex-col items-center justify-center p-3 rounded-xl border cursor-pointer ${
+                  user.goalType === opt.val
+                    ? 'bg-green-50 border-green-500 text-green-700'
+                    : 'bg-slate-50 border-transparent text-slate-500 hover:bg-slate-100/30'
+                }`}
               >
                 <div className='mb-1'>{opt.icon}</div>
                 <span className='text-xs'>{opt.label}</span>

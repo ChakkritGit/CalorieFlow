@@ -23,7 +23,7 @@ export const CustomModal: React.FC<ModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fade-in">
+    <div className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fade-in">
       <div className="bg-white rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl animate-scale-up">
         <div className="p-6 flex flex-col items-center text-center">
           <div className="mb-4">{icons[type]}</div>
@@ -35,13 +35,13 @@ export const CustomModal: React.FC<ModalProps> = ({
               <>
                 <button
                   onClick={onClose}
-                  className="flex-1 py-3 rounded-xl font-medium text-slate-500 bg-slate-100 hover:bg-slate-200"
+                  className="flex-1 py-3 rounded-xl font-medium text-slate-500 bg-slate-100 hover:bg-slate-200 cursor-pointer"
                 >
                   ยกเลิก
                 </button>
                 <button
                   onClick={() => { onConfirm?.(); onClose(); }}
-                  className="flex-1 py-3 rounded-xl font-medium text-white bg-green-500 hover:bg-green-600 shadow-lg shadow-green-200"
+                  className="flex-1 py-3 rounded-xl font-medium text-white bg-green-500 hover:bg-green-600 shadow-lg shadow-green-200 cursor-pointer"
                 >
                   ยืนยัน
                 </button>
@@ -49,7 +49,7 @@ export const CustomModal: React.FC<ModalProps> = ({
             ) : (
               <button
                 onClick={onClose}
-                className="w-full py-3 rounded-xl font-medium text-white bg-slate-800 hover:bg-slate-900"
+                className="w-full py-3 rounded-xl font-medium text-white bg-slate-800 hover:bg-slate-900 cursor-pointer"
               >
                 ตกลง
               </button>

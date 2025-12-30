@@ -28,6 +28,9 @@ export interface UserProfile {
   goalType: GoalType
   manualTDEE?: number // If user overrides
   updatedAt: string
+  streak: number // บันทึกต่อเนื่องกี่วัน
+  lastLogTimestamp?: string // เวลาที่บันทึกล่าสุด (ISO String)
+  waterGoal: number // เป้าหมายการดื่มน้ำ (ml)
 }
 
 export interface FoodItem {
