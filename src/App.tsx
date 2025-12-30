@@ -1377,7 +1377,9 @@ export default function App () {
               <div className='w-px bg-slate-200 h-10'></div>
               <div className='text-center'>
                 <span className='text-2xl font-black text-red-500 block'>
-                  +{Math.abs(dailyTarget - currentLog.totalCalories)}
+                  {dailyTarget - currentLog.totalCalories > 0
+                    ? dailyTarget - currentLog.totalCalories
+                    : `+${Math.abs(dailyTarget - currentLog.totalCalories)}`}
                 </span>
                 <span className='text-[10px] mt-1 text-slate-400 uppercase font-bold'>
                   Left
