@@ -921,7 +921,7 @@ export default function App () {
           </ResponsiveContainer>
         </div>
         <p className='text-center text-xs text-slate-400 mt-4'>
-          เส้นประคือเป้าหมาย TDEE ปัจจุบันของคุณ ({dailyTarget})
+          เส้นประคือเป้าหมาย TDEE ปัจจุบันของคุณ
         </p>
       </div>
 
@@ -1197,7 +1197,7 @@ export default function App () {
             className='w-full p-3 bg-white border-slate-200 border rounded-xl'
           />
           <p className='text-xs text-slate-400 mt-2'>
-            ปกติระบบคำนวณจากน้ำหนักปัจจุบัน - 500 kcal (สำหรับการลดน้ำหนัก)
+            ปกติระบบคำนวณจากน้ำหนักปัจจุบัน - 1000 kcal (สำหรับการลดน้ำหนัก)
             หากคุณต้องการใช้สูตรน้ำหนักเป้าหมาย สามารถกรอกค่าที่ต้องการที่นี่
           </p>
         </div>
