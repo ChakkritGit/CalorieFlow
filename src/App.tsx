@@ -17,7 +17,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Flame,
-  Award
+  Award,
+  Share2
 } from 'lucide-react'
 import {
   BarChart,
@@ -37,9 +38,10 @@ import {
   DailyLog,
   FoodItem
 } from './types/types'
-import { CircularProgress } from './components/CircularProgress'
+import { BorderProgress, CircularProgress } from './components/CircularProgress'
 import { dbService } from './services/db'
 import { CustomModal } from './components/CustomModal'
+import html2canvas from 'html2canvas-pro'
 
 // --- Constants ---
 const STORAGE_KEY_USER = 'calorieflow_user'
@@ -142,6 +144,7 @@ export default function App () {
   const [selectedDate, setSelectedDate] = useState(getTodayDateString())
   const [viewMonth, setViewMonth] = useState(new Date())
   const [todayDate, setTodayDate] = useState(getTodayDateString())
+  const [isSharing, setIsSharing] = useState(false)
 
   // File Import Ref
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -187,8 +190,55 @@ export default function App () {
     return currentUser
   }
 
-  // --- Effects ---
+  const handleShareStory = async () => {
+    setIsSharing(true)
 
+    await new Promise(resolve => setTimeout(resolve, 100))
+
+    const element = document.getElementById('story-capture')
+    if (!element) {
+      setIsSharing(false)
+      return
+    }
+
+    try {
+      const canvas = await html2canvas(element, {
+        scale: 10,
+        useCORS: true,
+        backgroundColor: '#f8faf8',
+        logging: false,
+        allowTaint: true,
+        removeContainer: true
+      })
+
+      const image = canvas.toDataURL('image/png', 1)
+
+      if (navigator.share) {
+        const blob = await (await fetch(image)).blob()
+        const file = new File([blob], 'calorieflow_story.png', {
+          type: 'image/png'
+        })
+
+        if (navigator.canShare?.({ files: [file] })) {
+          await navigator.share({ files: [file] })
+          setIsSharing(false)
+          return
+        }
+      }
+
+      const link = document.createElement('a')
+      link.href = image
+      link.download = `calorieflow-${new Date().getTime()}.png`
+      link.click()
+    } catch (err) {
+      console.error('Sharing failed:', err)
+      showModal('เกิดข้อผิดพลาด', 'ไม่สามารถสร้างรูปภาพได้ในขณะนี้', 'error')
+    } finally {
+      setIsSharing(false)
+    }
+  }
+
+  // --- Effects ---
   // Check and update date periodically in case app is left open over midnight
   useEffect(() => {
     const interval = setInterval(() => {
@@ -561,8 +611,16 @@ export default function App () {
                   : 'รักษาน้ำหนัก'}
               </p>
             </div>
-            <div className='bg-green-50 px-3 py-1 rounded-full text-green-700 text-xs font-semibold border border-green-100'>
-              {user.currentWeight} kg
+            <div className='flex flex-col items-end gap-2'>
+              <div className='bg-green-100 text-green-700 px-3 py-1 rounded-full text-sm font-bold border border-green-200 shadow-sm'>
+                {user.currentWeight} kg
+              </div>
+              <button
+                onClick={handleShareStory}
+                className='flex items-center gap-1 text-[10px] font-bold bg-slate-800 text-white px-3 py-1.5 rounded-full hover:bg-slate-700 transition-colors cursor-pointer'
+              >
+                <Share2 size={12} /> แชร์
+              </button>
             </div>
           </div>
 
@@ -1256,6 +1314,110 @@ export default function App () {
         message={modalConfig.message}
         type={modalConfig.type}
       />
+
+      {/* Hidden Layout for Story Capture (9:16 Aspect Ratio) */}
+      <div
+        id='story-capture'
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: isSharing ? '0' : '-9999px',
+          width: '375px',
+          height: '667px',
+          zIndex: isSharing ? -1 : -9999,
+          visibility: isSharing ? 'visible' : 'hidden'
+        }}
+        className='bg-linear-to-br from-green-50 via-white to-blue-50 flex flex-col p-8 items-center justify-between overflow-hidden'
+      >
+        <div className='w-full flex justify-between items-center'>
+          <div className='flex items-center gap-2'>
+            <div className='w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-white font-bold'>
+              C
+            </div>
+            <span className='font-bold text-slate-700'>CalorieFlow</span>
+          </div>
+          <span className='text-xs font-bold text-slate-400'>
+            {formatDate(todayDate)}
+          </span>
+        </div>
+
+        <div className='flex flex-col items-center gap-6 w-full'>
+          <h1 className='text-3xl mt-3 font-black text-slate-800 mb-2 text-center'>
+            Daily Summary
+          </h1>
+
+          {/* Main Stats */}
+          <div className='bg-white/80 backdrop-blur-md p-6 rounded-4xl border border-slate-100 w-full flex flex-col items-center justify-center'>
+            <BorderProgress
+              percentage={Math.min(
+                (currentLog.totalCalories / dailyTarget) * 100,
+                100
+              )}
+              color='#22c55e'
+              size={180}
+            >
+              <div className='text-center'>
+                <span className='text-4xl font-black text-slate-800'>
+                  {currentLog.totalCalories}
+                </span>
+                <span className='block text-[10px] uppercase tracking-widest mt-1 font-black text-slate-400'>
+                  kcal consumed
+                </span>
+              </div>
+            </BorderProgress>
+            <div className='flex items-center justify-center w-full mt-6 gap-8'>
+              <div className='text-center'>
+                <span className='text-2xl font-black text-slate-800 block'>
+                  {dailyTarget}
+                </span>
+                <span className='text-[10px] mt-1 text-slate-400 uppercase font-bold'>
+                  Goal
+                </span>
+              </div>
+              <div className='w-px bg-slate-200 h-10'></div>
+              <div className='text-center'>
+                <span className='text-2xl font-black text-red-500 block'>
+                  +{Math.abs(dailyTarget - currentLog.totalCalories)}
+                </span>
+                <span className='text-[10px] mt-1 text-slate-400 uppercase font-bold'>
+                  Left
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Secondary Stats */}
+          <div className='grid grid-cols-1 gap-4 w-full'>
+            <div className='bg-linear-to-br from-orange-400 to-red-500 p-5 rounded-3xl text-white flex flex-col items-center justify-center relative overflow-hidden'>
+              <Flame
+                size={80}
+                className='absolute -bottom-4 -right-4 opacity-20'
+              />
+              <Flame size={32} className='mb-1' fill='currentColor' />
+              <span className='text-3xl font-black'>{user.streak}</span>
+              <span className='text-[10px] mt-3 uppercase font-bold opacity-80'>
+                Day Streak
+              </span>
+            </div>
+            {/* <div className='bg-white p-5 rounded-3xl flex flex-col items-center justify-center border border-blue-100'>
+              <Droplets size={32} className='mb-1 text-blue-500' />
+              <span className='text-3xl font-black text-blue-600'>
+                {currentLog.waterIntake || 0}
+              </span>
+              <span className='text-[10px] mt-3 uppercase font-bold text-slate-400'>
+                ml Water
+              </span>
+            </div> */}
+          </div>
+        </div>
+
+        <div className='text-center mt-2'>
+          <p className='text-slate-400 text-xs font-medium'>
+            Keep going towards your goal!
+          </p>
+          <div className='w-12 h-1 bg-slate-200 rounded-full mx-auto mt-2'></div>
+        </div>
+      </div>
 
       <main className='flex-1 overflow-y-auto no-scrollbar p-6'>
         {activeTab === 'dashboard' && renderDashboard()}
