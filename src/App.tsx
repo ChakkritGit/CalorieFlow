@@ -1332,7 +1332,7 @@ export default function App () {
         <div className='w-full flex justify-between items-center'>
           <div className='flex items-center gap-2'>
             <div className='w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-white font-bold'>
-              C
+              {user.name[0] ? user.name[0].toUpperCase() : 'C'}
             </div>
             <span className='font-bold text-slate-700'>CalorieFlow</span>
           </div>
