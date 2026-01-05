@@ -18,7 +18,11 @@ import {
   ChevronRight,
   Flame,
   Award,
-  Share2
+  Share2,
+  Target,
+  Sparkles,
+  X,
+  Trophy
 } from 'lucide-react'
 import {
   BarChart,
@@ -145,6 +149,8 @@ export default function App () {
   const [viewMonth, setViewMonth] = useState(new Date())
   const [todayDate, setTodayDate] = useState(getTodayDateString())
   const [isSharing, setIsSharing] = useState(false)
+  const [showWrapped, setShowWrapped] = useState(false)
+  const [wrappedData, setWrappedData] = useState<any>(null)
 
   // File Import Ref
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -162,6 +168,7 @@ export default function App () {
     message: '',
     type: 'info'
   })
+  const isDecember = new Date().getMonth() === 11
 
   const showModal = (
     title: string,
@@ -464,6 +471,11 @@ export default function App () {
     }
   }
 
+  const weeklyAverage = useMemo(() => {
+    const sum = weeklyData.reduce((acc, curr) => acc + curr.calories, 0)
+    return Math.round(sum / 7)
+  }, [weeklyData])
+
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (!file) return
@@ -569,6 +581,55 @@ export default function App () {
 
     return (
       <div className='space-y-6 pb-24 animate-fade-in'>
+        {isDecember && (
+          <div
+            onClick={() => {
+              const year = new Date().getFullYear()
+              const yearLogs = Object.values(logs).filter((l: DailyLog) =>
+                l.date.startsWith(year.toString())
+              )
+              let totalCals = 0
+              let totalWater = 0
+              let totalFoods = 0
+              const counts: any = {}
+              yearLogs.forEach((l: DailyLog) => {
+                totalCals += l.totalCalories || 0
+                totalWater += l.waterIntake || 0
+                l.foods.forEach(f => {
+                  totalFoods++
+                  counts[f.name] = (counts[f.name] || 0) + 1
+                })
+              })
+              const topFoods = Object.entries(counts)
+                .sort((a: any, b: any) => b[1] - a[1])
+                .slice(0, 3)
+                .map(([name, count]) => ({ name, count }))
+              setWrappedData({
+                year,
+                totalCalories: totalCals,
+                totalWater,
+                totalFoodItems: totalFoods,
+                topFoods,
+                activeDays: yearLogs.length,
+                maxStreak: user.streak
+              })
+              setShowWrapped(true)
+            }}
+            className='bg-linear-to-r from-purple-600 to-pink-500 p-5 rounded-3xl text-white cursor-pointer active:scale-95 transition-all shadow-lg shadow-purple-200'
+          >
+            <div className='flex justify-between items-center'>
+              <div>
+                <span className='text-[10px] font-black uppercase tracking-widest opacity-80'>
+                  พร้อมหรือยัง?
+                </span>
+                <h2 className='text-xl font-black'>
+                  Wrapped {new Date().getFullYear()}
+                </h2>
+              </div>
+              <Trophy className='animate-pulse' size={28} />
+            </div>
+          </div>
+        )}
         {/* Streak Highlight Card */}
         {user.streak > 0 && (
           <div className='bg-linear-to-br from-orange-400 to-red-500 p-4 rounded-3xl shadow-lg shadow-orange-100 flex items-center justify-between text-white border border-orange-300'>
@@ -927,117 +988,166 @@ export default function App () {
     </div>
   )
 
-  const renderStats = () => (
-    <div className='pb-24 animate-fade-in space-y-6'>
-      <h2 className='text-2xl font-bold text-slate-800 px-2'>สถิติภาพรวม</h2>
+  const renderStats = () => {
+    const avgIsOver = weeklyAverage > dailyTarget
 
-      <div className='bg-white p-6 rounded-3xl shadow-sm border border-slate-100'>
-        <h3 className='font-semibold text-slate-700 mb-6'>แคลอรี่รายสัปดาห์</h3>
-        <div className='h-64 w-full'>
-          <ResponsiveContainer width='100%' height='100%'>
-            <BarChart
-              data={weeklyData}
-              margin={{ top: 5, right: 0, bottom: 5, left: -20 }}
-            >
-              <CartesianGrid
-                strokeDasharray='3 3'
-                vertical={false}
-                stroke='#f1f5f9'
-              />
-              <XAxis
-                dataKey='name'
-                axisLine={false}
-                tickLine={false}
-                tick={{ fontSize: 12, fill: '#94a3b8' }}
-                dy={10}
-              />
-              <YAxis
-                axisLine={false}
-                tickLine={false}
-                tick={{ fontSize: 12, fill: '#94a3b8' }}
-              />
-              <Tooltip
-                cursor={{ fill: '#f8fafc' }}
-                contentStyle={{
-                  borderRadius: '12px',
-                  border: 'none',
-                  boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
-                }}
-              />
-              <ReferenceLine
-                y={dailyTarget}
-                stroke='#cbd5e1'
-                strokeDasharray='3 3'
-              />
-              <Bar
-                dataKey='calories'
-                fill='#22c55e'
-                radius={[6, 6, 0, 0]}
-                barSize={20}
-              />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-        <p className='text-center text-xs text-slate-400 mt-4'>
-          เส้นประคือเป้าหมาย TDEE ปัจจุบันของคุณ
-        </p>
-      </div>
+    return (
+      <div className='pb-24 animate-fade-in space-y-6'>
+        <h2 className='text-2xl font-bold text-slate-800 px-2'>สถิติภาพรวม</h2>
 
-      <div className='grid grid-cols-2 gap-4'>
-        <div className='bg-white/80 backdrop-blur-md p-5 rounded-3xl shadow-sm border border-slate-100 text-center overflow-hidden relative'>
-          <Flame
-            fill='currentColor'
-            size={64}
-            className='absolute -right-4 -bottom-4 text-orange-50 opacity-10'
-          />
-          <span className='block text-[10px] font-bold text-slate-400 uppercase mb-1 tracking-widest relative z-10'>
-            Streak ปัจจุบัน
-          </span>
-          <span className='text-2xl font-black text-orange-600 flex items-center justify-center gap-2 relative z-10'>
-            <Flame fill='currentColor' size={20} /> {user.streak} วัน
-          </span>
+        <div className='bg-white p-6 rounded-3xl shadow-sm border border-slate-100'>
+          <h3 className='font-semibold text-slate-700 mb-6'>
+            แคลอรี่รายสัปดาห์
+          </h3>
+          <div className='h-64 w-full'>
+            <ResponsiveContainer width='100%' height='100%'>
+              <BarChart
+                data={weeklyData}
+                margin={{ top: 5, right: 0, bottom: 5, left: -20 }}
+              >
+                <CartesianGrid
+                  strokeDasharray='3 3'
+                  vertical={false}
+                  stroke='#f1f5f9'
+                />
+                <XAxis
+                  dataKey='name'
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 12, fill: '#94a3b8' }}
+                  dy={10}
+                />
+                <YAxis
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 12, fill: '#94a3b8' }}
+                />
+                <Tooltip
+                  cursor={{ fill: '#f8fafc' }}
+                  contentStyle={{
+                    borderRadius: '12px',
+                    border: 'none',
+                    boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
+                  }}
+                />
+                <ReferenceLine
+                  y={dailyTarget}
+                  stroke='#cbd5e1'
+                  strokeDasharray='3 3'
+                />
+                <Bar
+                  dataKey='calories'
+                  fill='#22c55e'
+                  radius={[6, 6, 0, 0]}
+                  barSize={20}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          <p className='text-center text-xs text-slate-400 mt-4'>
+            เส้นประคือเป้าหมาย TDEE ปัจจุบันของคุณ
+          </p>
         </div>
-        <div className='bg-white/80 backdrop-blur-md p-5 rounded-3xl shadow-sm border border-slate-100 text-center'>
-          <span className='block text-[10px] font-bold text-slate-400 uppercase mb-1 tracking-widest'>
-            เป้าหมาย TDEE
-          </span>
-          <span className='text-2xl font-black text-slate-700'>
-            {dailyTarget}{' '}
-            <span className='text-xs font-bold text-slate-400'>kcal</span>
-          </span>
-        </div>
-      </div>
 
-      <div className='bg-white p-6 rounded-3xl shadow-sm border border-slate-100'>
-        <div className='flex justify-between items-center mb-4'>
-          <h3 className='font-semibold text-slate-700'>อัปเดตน้ำหนักล่าสุด</h3>
-          <Scale className='text-blue-500' size={20} />
-        </div>
-        <p className='text-sm text-slate-500 mb-4'>
-          การอัปเดตน้ำหนักจะช่วยให้ TDEE คำนวณได้แม่นยำขึ้น
-        </p>
-        <div className='flex gap-3'>
-          <input
-            type='number'
-            inputMode='decimal'
-            autoComplete='off'
-            autoCorrect='off'
-            autoCapitalize='off'
-            value={newWeight}
-            onChange={e => setNewWeight(e.target.value)}
-            placeholder={user.currentWeight.toString()}
-            className='flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 focus:outline-none focus:ring-2 focus:ring-blue-500'
-          />
-          <button
-            onClick={handleWeightUpdate}
-            className='bg-blue-500 text-white px-6 py-3 rounded-xl font-medium hover:bg-blue-600 cursor-pointer'
+        <div className='bg-linear-to-br from-white to-slate-50 p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center justify-between'>
+          <div>
+            <span className='text-[10px] font-black uppercase text-slate-400 tracking-widest block mb-1'>
+              ค่าเฉลี่ยสัปดาห์นี้
+            </span>
+            <div className='flex items-baseline gap-2'>
+              <span
+                className={`text-3xl font-black ${
+                  avgIsOver ? 'text-red-500' : 'text-green-600'
+                }`}
+              >
+                {weeklyAverage.toLocaleString()}
+              </span>
+              <span className='text-sm font-bold text-slate-400'>kcal/วัน</span>
+            </div>
+            <div className='flex items-center gap-1 mt-2'>
+              {avgIsOver ? (
+                <TrendingUp size={14} className='text-red-500' />
+              ) : (
+                <TrendingDown size={14} className='text-green-500' />
+              )}
+              <span
+                className={`text-[10px] font-bold ${
+                  avgIsOver ? 'text-red-500' : 'text-green-600'
+                }`}
+              >
+                {avgIsOver ? 'เกินเป้าหมายเฉลี่ย' : 'ทำได้ดีมาก! ต่ำกว่าเป้า'}
+              </span>
+            </div>
+          </div>
+          <div
+            className={`p-4 rounded-2xl ${
+              avgIsOver
+                ? 'bg-red-50 text-red-500'
+                : 'bg-green-50 text-green-500'
+            }`}
           >
-            บันทึก
-          </button>
+            <Target size={32} />
+          </div>
+        </div>
+
+        <div className='grid grid-cols-2 gap-4'>
+          <div className='bg-white/80 backdrop-blur-md p-5 rounded-3xl shadow-sm border border-slate-100 text-center overflow-hidden relative'>
+            <Flame
+              fill='currentColor'
+              size={64}
+              className='absolute -right-4 -bottom-4 text-orange-50 opacity-10'
+            />
+            <span className='block text-[10px] font-bold text-slate-400 uppercase mb-1 tracking-widest relative z-10'>
+              Streak ปัจจุบัน
+            </span>
+            <span className='text-2xl font-black text-orange-600 flex items-center justify-center gap-2 relative z-10'>
+              <Flame fill='currentColor' size={20} /> {user.streak} วัน
+            </span>
+          </div>
+          <div className='bg-white/80 backdrop-blur-md p-5 rounded-3xl shadow-sm border border-slate-100 text-center'>
+            <span className='block text-[10px] font-bold text-slate-400 uppercase mb-1 tracking-widest'>
+              เป้าหมาย TDEE
+            </span>
+            <span className='text-2xl font-black text-slate-700'>
+              {dailyTarget}{' '}
+              <span className='text-xs font-bold text-slate-400'>kcal</span>
+            </span>
+          </div>
+        </div>
+
+        <div className='bg-white p-6 rounded-3xl shadow-sm border border-slate-100'>
+          <div className='flex justify-between items-center mb-4'>
+            <h3 className='font-semibold text-slate-700'>
+              อัปเดตน้ำหนักล่าสุด
+            </h3>
+            <Scale className='text-blue-500' size={20} />
+          </div>
+          <p className='text-sm text-slate-500 mb-4'>
+            การอัปเดตน้ำหนักจะช่วยให้ TDEE คำนวณได้แม่นยำขึ้น
+          </p>
+          <div className='flex gap-3'>
+            <input
+              type='number'
+              inputMode='decimal'
+              autoComplete='off'
+              autoCorrect='off'
+              autoCapitalize='off'
+              value={newWeight}
+              onChange={e => setNewWeight(e.target.value)}
+              placeholder={user.currentWeight.toString()}
+              className='flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 focus:outline-none focus:ring-2 focus:ring-blue-500'
+            />
+            <button
+              onClick={handleWeightUpdate}
+              className='bg-blue-500 text-white px-6 py-3 rounded-xl font-medium hover:bg-blue-600 cursor-pointer'
+            >
+              บันทึก
+            </button>
+          </div>
         </div>
       </div>
-    </div>
-  )
+    )
+  }
 
   const renderSettings = () => (
     <div className='pb-24 animate-fade-in space-y-6'>
@@ -1296,6 +1406,259 @@ export default function App () {
     </div>
   )
 
+  const WrappedStory = ({
+    data,
+    onClose
+  }: {
+    data: any
+    onClose: () => void
+  }) => {
+    const [step, setStep] = useState(0)
+    const containerRef = useRef<HTMLDivElement>(null)
+
+    const steps = [
+      {
+        title: 'ปีที่ผ่านมายอดเยี่ยมมาก!',
+        subtitle: `ปี ${data.year} เป็นปีแห่งการดูแลตัวเองของคุณ`,
+        icon: <Sparkles className='text-yellow-400 w-20 h-20' />,
+        color: 'from-indigo-600 to-purple-700'
+      },
+      {
+        title: 'พลังงานที่คุณเติมเต็ม',
+        content: (
+          <div className='text-center'>
+            <p className='text-6xl font-black mb-2'>
+              {data.totalCalories.toLocaleString()}
+            </p>
+            <p className='text-xl opacity-80 uppercase tracking-widest font-bold'>
+              Kcal ทั้งปี
+            </p>
+            <div className='mt-8 bg-white/20 p-4 rounded-2xl backdrop-blur-sm'>
+              <p className='text-sm'>
+                เฉลี่ยวันละ{' '}
+                {Math.round(data.totalCalories / (data.activeDays || 1))} kcal
+              </p>
+            </div>
+          </div>
+        ),
+        color: 'from-orange-500 to-red-600'
+      },
+      // {
+      //   title: 'ความชุ่มชื้นไม่เคยขาด',
+      //   content: (
+      //     <div className='text-center'>
+      //       <div className='relative inline-block mb-4'>
+      //         <Droplets className='w-24 h-24 text-blue-200' />
+      //         <div className='absolute inset-0 flex items-center justify-center'>
+      //           <span className='text-3xl font-black'>
+      //             {Math.round(data.totalWater / 1000)}
+      //           </span>
+      //         </div>
+      //       </div>
+      //       <p className='text-2xl font-black'>ลิตร</p>
+      //       <p className='text-sm opacity-80 mt-2'>
+      //         คือปริมาณน้ำทั้งหมดที่คุณดื่มในปีนี้
+      //       </p>
+      //     </div>
+      //   ),
+      //   color: 'from-blue-500 to-indigo-600'
+      // },
+      {
+        title: 'เมนูโปรดของคุณ',
+        content: (
+          <div className='w-full space-y-4'>
+            {data.topFoods.map((f: any, i: number) => (
+              <div
+                key={i}
+                className='flex items-center justify-between bg-white/10 p-4 rounded-2xl border border-white/10'
+              >
+                <div className='flex items-center gap-3'>
+                  <span className='text-2xl font-black opacity-30'>
+                    #{i + 1}
+                  </span>
+                  <span className='font-bold text-lg'>{f.name}</span>
+                </div>
+                <span className='text-sm font-bold bg-white/20 px-3 py-1 rounded-full'>
+                  {f.count} ครั้ง
+                </span>
+              </div>
+            ))}
+          </div>
+        ),
+        color: 'from-emerald-500 to-teal-700'
+      },
+      {
+        title: 'สรุปการเดินทาง',
+        content: (
+          <div className='text-center space-y-6 w-full'>
+            <div className='bg-white text-slate-900 p-6 rounded-[2.5rem] shadow-2xl space-y-4'>
+              <div className='flex justify-between items-center'>
+                <span className='text-[10px] font-black uppercase text-slate-400'>
+                  Streak สูงสุด
+                </span>
+                <span className='text-xl font-black text-orange-500'>
+                  {data.maxStreak} วัน
+                </span>
+              </div>
+              <div className='flex justify-between items-center'>
+                <span className='text-[10px] font-black uppercase text-slate-400'>
+                  อาหารที่บันทึก
+                </span>
+                <span className='text-xl font-black text-green-600'>
+                  {data.totalFoodItems} รายการ
+                </span>
+              </div>
+              {/* <div className='flex justify-between items-center'>
+                <span className='text-[10px] font-black uppercase text-slate-400'>
+                  เป้าหมายน้ำ
+                </span>
+                <span className='text-xl font-black text-blue-600'>
+                  {data.totalWater.toLocaleString()} ml
+                </span>
+              </div> */}
+              <div className='pt-4 border-t border-slate-100 flex items-center justify-center gap-2'>
+                <div className='w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-white font-bold text-xs'>
+                  C
+                </div>
+                <span className='font-bold text-slate-700'>
+                  CalorieFlow {data.year}
+                </span>
+              </div>
+            </div>
+          </div>
+        ),
+        color: 'from-purple-600 to-pink-600'
+      }
+    ]
+
+    const next = () => {
+      if (step < steps.length - 1) setStep(s => s + 1)
+      else onClose()
+    }
+
+    const prev = () => {
+      if (step > 0) setStep(s => s - 1)
+    }
+
+    useEffect(() => {
+      const timer = setTimeout(() => {
+        next()
+      }, 15000)
+      return () => clearTimeout(timer)
+    }, [step])
+
+    const handleTap = (e: React.MouseEvent) => {
+      if ((e.target as HTMLElement).closest('button')) return
+      const width = window.innerWidth
+      const x = e.clientX
+      if (x < width * 0.3) prev()
+      else next()
+    }
+
+    const handleShareHighlight = async () => {
+      if (!containerRef.current) return
+      try {
+        const canvas = await html2canvas(containerRef.current, {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: null
+        })
+        const image = canvas.toDataURL('image/png')
+        if (navigator.share) {
+          const blob = await (await fetch(image)).blob()
+          const file = new File([blob], `wrapped-${step}.png`, {
+            type: 'image/png'
+          })
+          if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            await navigator.share({ files: [file] })
+            return
+          }
+        }
+        const link = document.createElement('a')
+        link.href = image
+        link.download = `wrapped-${step}.png`
+        link.click()
+      } catch (err) {
+        console.error(err)
+      }
+    }
+
+    return (
+      <div
+        ref={containerRef}
+        onClick={handleTap}
+        className={`fixed inset-0 z-200 bg-linear-to-br ${steps[step].color} text-white flex flex-col animate-fade-in transition-colors duration-700`}
+      >
+        <style>{`@keyframes progress { from { width: 0%; } to { width: 100%; } }`}</style>
+        <div className='absolute top-0 left-0 w-full p-4 pt-8 z-20 flex flex-col gap-4'>
+          <div className='flex gap-1 mb-1'>
+            {steps.map((_, i) => (
+              <div
+                key={i}
+                className='h-1 flex-1 bg-white/20 rounded-full overflow-hidden'
+              >
+                <div
+                  className={`h-full bg-white ${
+                    i < step
+                      ? 'w-full'
+                      : i === step
+                      ? 'w-full animate-[progress_15s_linear]'
+                      : 'w-0'
+                  }`}
+                  style={
+                    i === step
+                      ? { transition: 'none' }
+                      : { transition: 'width 0.3s' }
+                  }
+                />
+              </div>
+            ))}
+          </div>
+          <div className='flex justify-between items-center px-1'>
+            <div className='flex items-center gap-2 opacity-80'>
+              <div className='w-5 h-5 bg-white/20 rounded-full flex items-center justify-center text-[8px] font-bold'>
+                C
+              </div>
+              <span className='text-[10px] font-bold tracking-widest uppercase'>
+                Wrapped {data.year}
+              </span>
+            </div>
+            <div className='flex gap-3'>
+              <button
+                onClick={handleShareHighlight}
+                className='p-2 bg-white/10 rounded-full hover:bg-white/20 backdrop-blur-md transition-colors'
+              >
+                <Share2 size={18} />
+              </button>
+              <button
+                onClick={onClose}
+                className='p-2 bg-black/10 rounded-full hover:bg-black/20 backdrop-blur-md transition-colors'
+              >
+                <X size={18} />
+              </button>
+            </div>
+          </div>
+        </div>
+        <div className='flex-1 flex flex-col items-center justify-center p-8 overflow-y-auto no-scrollbar relative z-10'>
+          <h2 className='text-xs uppercase tracking-[0.3em] font-black opacity-60 mb-8 animate-fade-in'>
+            {steps[step].title}
+          </h2>
+          {steps[step].icon && (
+            <div className='mb-8 animate-bounce'>{steps[step].icon}</div>
+          )}
+          {steps[step].subtitle && (
+            <p className='text-3xl font-black text-center leading-tight mb-8 animate-scale-up'>
+              {steps[step].subtitle}
+            </p>
+          )}
+          <div className='animate-scale-up w-full flex justify-center'>
+            {steps[step].content}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   if (isInitializing)
     return (
       <div className='flex h-screen items-center justify-center bg-slate-50 text-slate-400'>
@@ -1422,6 +1785,12 @@ export default function App () {
       </div>
 
       <main className='flex-1 overflow-y-auto no-scrollbar p-6'>
+        {showWrapped && wrappedData && (
+          <WrappedStory
+            data={wrappedData}
+            onClose={() => setShowWrapped(false)}
+          />
+        )}
         {activeTab === 'dashboard' && renderDashboard()}
         {activeTab === 'history' && renderHistory()}
         {activeTab === 'add' && renderAddFood()}

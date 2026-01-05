@@ -45,4 +45,5 @@ export interface DailyLog {
   foods: FoodItem[]
   totalCalories: number
   weightRecorded?: number
+  waterIntake: number
 }
