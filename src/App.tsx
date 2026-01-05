@@ -22,7 +22,8 @@ import {
   Target,
   Sparkles,
   X,
-  Trophy
+  Trophy,
+  Droplets
 } from 'lucide-react'
 import {
   BarChart,
@@ -154,6 +155,9 @@ export default function App () {
 
   // File Import Ref
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Water State
+  const [waterInput, setWaterInput] = useState('')
 
   // --- Modal State ---
   const [modalConfig, setModalConfig] = useState<{
@@ -311,19 +315,22 @@ export default function App () {
   // Get last 7 days data for charts
   const weeklyData = useMemo(() => {
     const data = []
+    const waterGoal = user.waterGoal || 2000
     for (let i = 6; i >= 0; i--) {
-      const d = new Date()
+      const d = today ? new Date(today) : new Date()
       d.setDate(d.getDate() - i)
       const dateStr = d.toISOString().split('T')[0]
       const log = logs[dateStr]
       data.push({
         name: formatDate(dateStr),
         calories: log ? log.totalCalories : 0,
-        target: dailyTarget
+        target: dailyTarget,
+        waters: log ? log.waterIntake || 0 : 0,
+        waterGoal: waterGoal
       })
     }
     return data
-  }, [logs, dailyTarget])
+  }, [logs, dailyTarget, user.waterGoal])
 
   // --- Handlers ---
 
@@ -471,9 +478,16 @@ export default function App () {
     }
   }
 
-  const weeklyAverage = useMemo(() => {
-    const sum = weeklyData.reduce((acc, curr) => acc + curr.calories, 0)
-    return Math.round(sum / 7)
+  const weeklyStats = useMemo(() => {
+    const calSum = weeklyData.reduce((acc, curr) => acc + curr.calories, 0)
+    const waterSum = weeklyData.reduce(
+      (acc, curr) => acc + (curr.waters || 0),
+      0
+    )
+    return {
+      avgCalories: Math.round(calSum / 7),
+      avgWater: Math.round(waterSum / 7)
+    }
   }, [weeklyData])
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -574,10 +588,42 @@ export default function App () {
     reader.readAsText(file)
   }
 
+  const handleAddWater = (amount: number) => {
+    setLogs(prev => {
+      const todayLog = prev[today] || {
+        date: today,
+        foods: [],
+        totalCalories: 0,
+        waterIntake: 0
+      }
+      const newWater = (todayLog.waterIntake || 0) + amount
+      return {
+        ...prev,
+        [today]: {
+          ...todayLog,
+          waterIntake: Math.max(0, newWater)
+        }
+      }
+    })
+    setWaterInput('')
+  }
+
   // --- Renders ---
 
   const renderDashboard = () => {
     const isOver = remaining < 0
+    const waterGoal = user.waterGoal || 2000
+    const waterCurrent = currentLog.waterIntake || 0
+    const waterPercent = Math.min((waterCurrent / waterGoal) * 100, 100)
+
+    // Calculate combined daily status (Average of Calorie % and Water %)
+    const caloriePercentCap = Math.min(
+      (currentLog.totalCalories / dailyTarget) * 100,
+      100
+    )
+    const combinedDailyStatus = Math.round(
+      (caloriePercentCap + waterPercent) / 2
+    )
 
     return (
       <div className='space-y-6 pb-24 animate-fade-in'>
@@ -729,25 +775,95 @@ export default function App () {
           <div className='flex justify-between items-center mb-2'>
             <h3 className='font-semibold text-slate-700'>สถานะรายวัน</h3>
             <span className='text-xs text-slate-400'>
-              {Math.round(progressPercent)}%
+              {combinedDailyStatus}%
             </span>
           </div>
           <div className='h-3 bg-slate-100 rounded-full overflow-hidden w-full relative'>
             <div
               className={`h-full rounded-full transition-all duration-500 ${
-                remaining < 0
-                  ? 'bg-red-500'
-                  : progressPercent > 80
+                combinedDailyStatus < 50
+                  ? 'bg-slate-400'
+                  : combinedDailyStatus < 80
                   ? 'bg-orange-400'
                   : 'bg-green-500'
               }`}
-              style={{ width: `${Math.min(progressPercent, 100)}%` }}
+              style={{ width: `${Math.min(combinedDailyStatus, 100)}%` }}
             ></div>
             <div className='absolute inset-0 bg-[linear-gradient(45deg,rgba(255,255,255,0.2)_25%,transparent_25%,transparent_50%,rgba(255,255,255,0.2)_50%,rgba(255,255,255,0.2)_75%,transparent_75%,transparent)] bg-size-[1rem_1rem] opacity-30'></div>
           </div>
           <p className='text-xs text-slate-400 mt-2 text-right'>
-            {remaining < 0 ? 'เกินเป้าหมายแล้ว!' : 'ยังทานได้อีกนิดหน่อย'}
+            {combinedDailyStatus === 100
+              ? 'ยอดเยี่ยม! ครบตามเป้าหมายแล้ว'
+              : `เฉลี่ย: อาหาร ${Math.round(
+                  caloriePercentCap
+                )}%, น้ำ ${Math.round(waterPercent)}%`}
           </p>
+        </div>
+
+        {/* Water Tracker Card */}
+        <div className='bg-white p-6 rounded-3xl shadow-sm border border-slate-100'>
+          <div className='flex justify-between items-center mb-4'>
+            <div className='flex items-center gap-2'>
+              <div className='p-2 bg-blue-50 rounded-xl text-blue-500'>
+                <Droplets size={20} />
+              </div>
+              <h3 className='font-semibold text-slate-700'>ปริมาณน้ำที่ดื่ม</h3>
+            </div>
+            <span className='text-xs text-slate-400'>
+              เป้าหมาย: {waterGoal} ml
+            </span>
+          </div>
+
+          <div className='flex items-baseline gap-2 mb-2'>
+            <span className='text-3xl font-black text-blue-600'>
+              {waterCurrent}
+            </span>
+            <span className='text-sm font-bold text-slate-400'>
+              / {waterGoal} ml
+            </span>
+          </div>
+
+          <div className='h-3 bg-blue-50 rounded-full overflow-hidden w-full mb-6'>
+            <div
+              className='h-full bg-blue-500 rounded-full transition-all duration-500'
+              style={{ width: `${waterPercent}%` }}
+            ></div>
+          </div>
+
+          <div className='grid grid-cols-2 gap-3 mb-3'>
+            <button
+              onClick={() => handleAddWater(250)}
+              className='flex items-center justify-center gap-2 py-3 bg-blue-50 text-blue-600 rounded-xl font-bold text-sm hover:bg-blue-100 active:scale-95 transition-all cursor-pointer'
+            >
+              <Plus size={16} /> 250 ml (แก้ว)
+            </button>
+            <button
+              onClick={() => handleAddWater(500)}
+              className='flex items-center justify-center gap-2 py-3 bg-blue-50 text-blue-600 rounded-xl font-bold text-sm hover:bg-blue-100 active:scale-95 transition-all cursor-pointer'
+            >
+              <Plus size={16} /> 500 ml (ขวด)
+            </button>
+          </div>
+
+          <div className='flex gap-2'>
+            <input
+              type='number'
+              inputMode='decimal'
+              placeholder='ระบุจำนวน (ml)'
+              value={waterInput}
+              onChange={e => setWaterInput(e.target.value)}
+              className='flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
+            />
+            <button
+              onClick={() => {
+                const amount = parseInt(waterInput)
+                if (!isNaN(amount) && amount > 0) handleAddWater(amount)
+              }}
+              className='bg-slate-800 text-white px-4 rounded-xl font-bold text-sm hover:bg-slate-700 active:scale-95 transition-all cursor-pointer'
+            >
+              เพิ่ม
+            </button>
+          </div>
         </div>
 
         <div>
@@ -882,6 +998,9 @@ export default function App () {
 
   const renderHistory = () => {
     const log = logs[selectedDate]
+    const hasData =
+      log && (log.foods.length > 0 || (log.waterIntake && log.waterIntake > 0))
+
     return (
       <div className='space-y-6 pb-24 animate-fade-in'>
         <h2 className='text-2xl font-bold text-slate-800 px-2'>
@@ -892,7 +1011,7 @@ export default function App () {
           <h3 className='font-bold text-slate-700 mb-4'>
             {formatDate(selectedDate)}
           </h3>
-          {!log || log.foods.length === 0 ? (
+          {!hasData ? (
             <p className='text-slate-400 text-center py-8'>
               ไม่มีการบันทึกข้อมูลในวันนี้
             </p>
@@ -902,6 +1021,12 @@ export default function App () {
                 <span className='text-slate-500 text-sm'>รวมแคลอรี่</span>
                 <span className='font-bold text-green-600'>
                   {log.totalCalories} kcal
+                </span>
+              </div>
+              <div className='flex justify-between border-b border-slate-50 pb-2 mb-2'>
+                <span className='text-slate-500 text-sm'>ดื่มน้ำ</span>
+                <span className='font-bold text-blue-600'>
+                  {log.waterIntake || 0} ml
                 </span>
               </div>
               {log.foods.map(f => (
@@ -915,6 +1040,11 @@ export default function App () {
                   </span>
                 </div>
               ))}
+              {log.foods.length === 0 && (log.waterIntake || 0) > 0 && (
+                <p className='text-center text-xs text-slate-400 py-2'>
+                  ไม่มีรายการอาหาร
+                </p>
+              )}
             </div>
           )}
         </div>
@@ -989,7 +1119,8 @@ export default function App () {
   )
 
   const renderStats = () => {
-    const avgIsOver = weeklyAverage > dailyTarget
+    const avgCalIsOver = weeklyStats.avgCalories > dailyTarget
+    const avgWaterIsGood = weeklyStats.avgWater >= (user.waterGoal || 2000)
 
     return (
       <div className='pb-24 animate-fade-in space-y-6'>
@@ -1049,44 +1180,149 @@ export default function App () {
           </p>
         </div>
 
-        <div className='bg-linear-to-br from-white to-slate-50 p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center justify-between'>
-          <div>
-            <span className='text-[10px] font-black uppercase text-slate-400 tracking-widest block mb-1'>
-              ค่าเฉลี่ยสัปดาห์นี้
-            </span>
-            <div className='flex items-baseline gap-2'>
-              <span
-                className={`text-3xl font-black ${
-                  avgIsOver ? 'text-red-500' : 'text-green-600'
-                }`}
+        {/* Water Stats Chart */}
+        <div className='bg-white p-6 rounded-3xl shadow-sm border border-slate-100'>
+          <h3 className='font-semibold text-slate-700 mb-6 flex items-center gap-2'>
+            <Droplets size={20} className='text-blue-500' />
+            ปริมาณน้ำรายสัปดาห์
+          </h3>
+          <div className='h-64 w-full'>
+            <ResponsiveContainer width='100%' height='100%'>
+              <BarChart
+                data={weeklyData}
+                margin={{ top: 5, right: 0, bottom: 5, left: -20 }}
               >
-                {weeklyAverage.toLocaleString()}
+                <CartesianGrid
+                  strokeDasharray='3 3'
+                  vertical={false}
+                  stroke='#f1f5f9'
+                />
+                <XAxis
+                  dataKey='name'
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 12, fill: '#94a3b8' }}
+                  dy={10}
+                />
+                <YAxis
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 12, fill: '#94a3b8' }}
+                />
+                <Tooltip
+                  cursor={{ fill: '#f8fafc' }}
+                  contentStyle={{
+                    borderRadius: '12px',
+                    border: 'none',
+                    boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
+                  }}
+                />
+                <ReferenceLine
+                  y={user.waterGoal || 2000}
+                  stroke='#93c5fd'
+                  strokeDasharray='3 3'
+                />
+                <Bar
+                  dataKey='waters'
+                  fill='#3b82f6'
+                  radius={[6, 6, 0, 0]}
+                  barSize={20}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          <p className='text-center text-xs text-slate-400 mt-4'>
+            เส้นประคือเป้าหมายการดื่มน้ำ ({user.waterGoal || 2000} ml)
+          </p>
+        </div>
+
+        <div className='grid grid-cols-1 gap-4'>
+          {/* Calorie Average Card */}
+          <div className='bg-linear-to-br from-white to-green-50 p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center justify-between'>
+            <div>
+              <span className='text-[10px] font-black uppercase text-slate-400 tracking-widest block mb-1'>
+                ค่าเฉลี่ยสัปดาห์นี้
               </span>
-              <span className='text-sm font-bold text-slate-400'>kcal/วัน</span>
+              <div className='flex items-baseline gap-2'>
+                <span
+                  className={`text-3xl font-black ${
+                    avgCalIsOver ? 'text-red-500' : 'text-green-600'
+                  }`}
+                >
+                  {weeklyStats.avgCalories.toLocaleString()}
+                </span>
+                <span className='text-sm font-bold text-slate-400'>
+                  kcal/วัน
+                </span>
+              </div>
+              <div className='flex items-center gap-1 mt-2'>
+                {avgCalIsOver ? (
+                  <TrendingUp size={14} className='text-red-500' />
+                ) : (
+                  <TrendingDown size={14} className='text-green-500' />
+                )}
+                <span
+                  className={`text-[10px] font-bold ${
+                    avgCalIsOver ? 'text-red-500' : 'text-green-600'
+                  }`}
+                >
+                  {avgCalIsOver
+                    ? 'เกินเป้าหมายเฉลี่ย'
+                    : 'ทำได้ดีมาก! ต่ำกว่าเป้า'}
+                </span>
+              </div>
             </div>
-            <div className='flex items-center gap-1 mt-2'>
-              {avgIsOver ? (
-                <TrendingUp size={14} className='text-red-500' />
-              ) : (
-                <TrendingDown size={14} className='text-green-500' />
-              )}
-              <span
-                className={`text-[10px] font-bold ${
-                  avgIsOver ? 'text-red-500' : 'text-green-600'
-                }`}
-              >
-                {avgIsOver ? 'เกินเป้าหมายเฉลี่ย' : 'ทำได้ดีมาก! ต่ำกว่าเป้า'}
-              </span>
+            <div
+              className={`p-4 rounded-2xl ${
+                avgCalIsOver
+                  ? 'bg-red-50 text-red-500'
+                  : 'bg-green-50 text-green-500'
+              }`}
+            >
+              <Target size={32} />
             </div>
           </div>
-          <div
-            className={`p-4 rounded-2xl ${
-              avgIsOver
-                ? 'bg-red-50 text-red-500'
-                : 'bg-green-50 text-green-500'
-            }`}
-          >
-            <Target size={32} />
+
+          {/* Water Average Card */}
+          <div className='bg-linear-to-br from-white to-blue-50 p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center justify-between'>
+            <div>
+              <span className='text-[10px] font-black uppercase text-slate-400 tracking-widest block mb-1'>
+                เฉลี่ยดื่มน้ำสัปดาห์นี้
+              </span>
+              <div className='flex items-baseline gap-2'>
+                <span
+                  className={`text-3xl font-black ${
+                    avgWaterIsGood ? 'text-green-600' : 'text-blue-600'
+                  }`}
+                >
+                  {weeklyStats.avgWater.toLocaleString()}
+                </span>
+                <span className='text-sm font-bold text-slate-400'>ml/วัน</span>
+              </div>
+              <div className='flex items-center gap-1 mt-2'>
+                {avgWaterIsGood ? (
+                  <TrendingUp size={14} className='text-green-500' />
+                ) : (
+                  <TrendingDown size={14} className='text-blue-500' />
+                )}
+                <span
+                  className={`text-[10px] font-bold ${
+                    avgWaterIsGood ? 'text-green-600' : 'text-blue-500'
+                  }`}
+                >
+                  {avgWaterIsGood ? 'ยอดเยี่ยม! ถึงเป้าหมาย' : 'พยายามอีกนิดนะ'}
+                </span>
+              </div>
+            </div>
+            <div
+              className={`p-4 rounded-2xl ${
+                avgWaterIsGood
+                  ? 'bg-green-50 text-green-500'
+                  : 'bg-blue-50 text-blue-500'
+              }`}
+            >
+              <Droplets size={32} />
+            </div>
           </div>
         </div>
 
@@ -1112,37 +1348,6 @@ export default function App () {
               {dailyTarget}{' '}
               <span className='text-xs font-bold text-slate-400'>kcal</span>
             </span>
-          </div>
-        </div>
-
-        <div className='bg-white p-6 rounded-3xl shadow-sm border border-slate-100'>
-          <div className='flex justify-between items-center mb-4'>
-            <h3 className='font-semibold text-slate-700'>
-              อัปเดตน้ำหนักล่าสุด
-            </h3>
-            <Scale className='text-blue-500' size={20} />
-          </div>
-          <p className='text-sm text-slate-500 mb-4'>
-            การอัปเดตน้ำหนักจะช่วยให้ TDEE คำนวณได้แม่นยำขึ้น
-          </p>
-          <div className='flex gap-3'>
-            <input
-              type='number'
-              inputMode='decimal'
-              autoComplete='off'
-              autoCorrect='off'
-              autoCapitalize='off'
-              value={newWeight}
-              onChange={e => setNewWeight(e.target.value)}
-              placeholder={user.currentWeight.toString()}
-              className='flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 focus:outline-none focus:ring-2 focus:ring-blue-500'
-            />
-            <button
-              onClick={handleWeightUpdate}
-              className='bg-blue-500 text-white px-6 py-3 rounded-xl font-medium hover:bg-blue-600 cursor-pointer'
-            >
-              บันทึก
-            </button>
           </div>
         </div>
       </div>
@@ -1330,6 +1535,37 @@ export default function App () {
           </div>
         </div>
 
+        <div className='p-5 mt-6 rounded-3xl border border-slate-100'>
+          <div className='flex justify-between items-center mb-4'>
+            <h3 className='font-semibold text-slate-700'>
+              อัปเดตน้ำหนักล่าสุด
+            </h3>
+            <Scale className='text-blue-500' size={20} />
+          </div>
+          <p className='text-sm text-slate-500 mb-4'>
+            การอัปเดตน้ำหนักจะช่วยให้ TDEE คำนวณได้แม่นยำขึ้น
+          </p>
+          <div className='flex md:flex-row flex-col gap-3'>
+            <input
+              type='number'
+              inputMode='decimal'
+              autoComplete='off'
+              autoCorrect='off'
+              autoCapitalize='off'
+              value={newWeight}
+              onChange={e => setNewWeight(e.target.value)}
+              placeholder={user.currentWeight.toString()}
+              className='md:max-w-52.5 h-12 bg-slate-50 border border-slate-200 rounded-xl px-4 focus:outline-none focus:ring-2 focus:ring-blue-500'
+            />
+            <button
+              onClick={handleWeightUpdate}
+              className='bg-blue-500 text-white px-6 py-3 rounded-xl font-medium hover:bg-blue-600 cursor-pointer'
+            >
+              บันทึก
+            </button>
+          </div>
+        </div>
+
         <div className='bg-slate-50 p-4 rounded-xl border border-slate-200 mt-2'>
           <div className='flex justify-between items-center mb-2'>
             <label className='text-sm font-medium text-slate-600'>
@@ -1365,8 +1601,33 @@ export default function App () {
             className='w-full p-3 bg-white border-slate-200 border rounded-xl'
           />
           <p className='text-xs text-slate-400 mt-2'>
-            ปกติระบบคำนวณจากน้ำหนักปัจจุบัน - 1000 kcal (สำหรับการลดน้ำหนัก)
+            ปกติระบบคำนวณจากน้ำหนักปัจจุบัน - 1000 kcal (สำหรับการลดน้ำหนัก) และ
+            + 1000 kcal (สำหรับการเพิ่มน้ำหนัก)
             หากคุณต้องการใช้สูตรน้ำหนักเป้าหมาย สามารถกรอกค่าที่ต้องการที่นี่
+          </p>
+        </div>
+
+        {/* Water Goal Setting */}
+        <div className='bg-blue-50 p-4 rounded-xl border border-blue-100 mt-2'>
+          <label className='text-sm font-medium text-blue-600 block mb-2'>
+            เป้าหมายการดื่มน้ำ (มิลลิลิตร)
+          </label>
+          <input
+            type='number'
+            inputMode='numeric'
+            autoComplete='off'
+            autoCorrect='off'
+            autoCapitalize='off'
+            value={user.waterGoal || 2000}
+            onChange={e =>
+              handleUpdateProfile({
+                waterGoal: parseInt(e.target.value) || 0
+              })
+            }
+            className='w-full p-3 bg-white border-blue-200 border rounded-xl text-blue-800 font-bold'
+          />
+          <p className='text-xs text-blue-400 mt-2'>
+            ปริมาณที่แนะนำคือประมาณ 2000 - 3000 มล. ต่อวัน
           </p>
         </div>
       </div>
@@ -1443,26 +1704,26 @@ export default function App () {
         ),
         color: 'from-orange-500 to-red-600'
       },
-      // {
-      //   title: 'ความชุ่มชื้นไม่เคยขาด',
-      //   content: (
-      //     <div className='text-center'>
-      //       <div className='relative inline-block mb-4'>
-      //         <Droplets className='w-24 h-24 text-blue-200' />
-      //         <div className='absolute inset-0 flex items-center justify-center'>
-      //           <span className='text-3xl font-black'>
-      //             {Math.round(data.totalWater / 1000)}
-      //           </span>
-      //         </div>
-      //       </div>
-      //       <p className='text-2xl font-black'>ลิตร</p>
-      //       <p className='text-sm opacity-80 mt-2'>
-      //         คือปริมาณน้ำทั้งหมดที่คุณดื่มในปีนี้
-      //       </p>
-      //     </div>
-      //   ),
-      //   color: 'from-blue-500 to-indigo-600'
-      // },
+      {
+        title: 'ความชุ่มชื้นไม่เคยขาด',
+        content: (
+          <div className='text-center'>
+            <div className='relative inline-block mb-4'>
+              <Droplets className='w-24 h-24 text-blue-200' />
+              <div className='absolute inset-0 flex items-center justify-center'>
+                <span className='text-3xl font-black'>
+                  {Math.round(data.totalWater / 1000)}
+                </span>
+              </div>
+            </div>
+            <p className='text-2xl font-black'>ลิตร</p>
+            <p className='text-sm opacity-80 mt-2'>
+              คือปริมาณน้ำทั้งหมดที่คุณดื่มในปีนี้
+            </p>
+          </div>
+        ),
+        color: 'from-blue-500 to-indigo-600'
+      },
       {
         title: 'เมนูโปรดของคุณ',
         content: (
@@ -1508,14 +1769,14 @@ export default function App () {
                   {data.totalFoodItems} รายการ
                 </span>
               </div>
-              {/* <div className='flex justify-between items-center'>
+              <div className='flex justify-between items-center'>
                 <span className='text-[10px] font-black uppercase text-slate-400'>
                   เป้าหมายน้ำ
                 </span>
                 <span className='text-xl font-black text-blue-600'>
                   {data.totalWater.toLocaleString()} ml
                 </span>
-              </div> */}
+              </div>
               <div className='pt-4 border-t border-slate-100 flex items-center justify-center gap-2'>
                 <div className='w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-white font-bold text-xs'>
                   C
@@ -1752,7 +2013,7 @@ export default function App () {
           </div>
 
           {/* Secondary Stats */}
-          <div className='grid grid-cols-1 gap-4 w-full'>
+          <div className='grid grid-cols-2 gap-4 w-full'>
             <div className='bg-linear-to-br from-orange-400 to-red-500 p-5 rounded-3xl text-white flex flex-col items-center justify-center relative overflow-hidden'>
               <Flame
                 size={80}
@@ -1764,7 +2025,7 @@ export default function App () {
                 Day Streak
               </span>
             </div>
-            {/* <div className='bg-white p-5 rounded-3xl flex flex-col items-center justify-center border border-blue-100'>
+            <div className='bg-white p-5 rounded-3xl flex flex-col items-center justify-center border border-blue-100'>
               <Droplets size={32} className='mb-1 text-blue-500' />
               <span className='text-3xl font-black text-blue-600'>
                 {currentLog.waterIntake || 0}
@@ -1772,7 +2033,7 @@ export default function App () {
               <span className='text-[10px] mt-3 uppercase font-bold text-slate-400'>
                 ml Water
               </span>
-            </div> */}
+            </div>
           </div>
         </div>
 
