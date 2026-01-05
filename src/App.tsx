@@ -12,7 +12,6 @@ import {
   Download,
   Upload,
   FileJson,
-  Pencil,
   HistoryIcon,
   ChevronLeft,
   ChevronRight,
@@ -23,7 +22,8 @@ import {
   Sparkles,
   X,
   Trophy,
-  Droplets
+  Droplets,
+  Hamburger
 } from 'lucide-react'
 import {
   BarChart,
@@ -1074,13 +1074,13 @@ export default function App () {
               placeholder='เช่น ข้าวมันไก่, กะเพราหมูสับ...'
               className='w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500'
             />
-            <Pencil
+            <Hamburger
               className='absolute right-4 top-1/2 -translate-y-1/2 text-purple-400'
               size={18}
             />
           </div>
           <p className='text-xs text-slate-400 mt-2 flex items-center gap-1'>
-            <Pencil size={12} /> โปรดระบุ
+            โปรดระบุ
           </p>
         </div>
 
